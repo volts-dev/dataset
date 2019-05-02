@@ -15,12 +15,12 @@ type (
 
 	TDataSet struct {
 		Name   string                // table name
-		Data   []IRecordSet          // []map[string]interface{}
+		Data   []*TRecordSet         // []map[string]interface{}
 		fields map[string]*TFieldSet //保存字段
 		//Delta // 修改过的
-		KeyField     string                // 主键字段
-		RecordsIndex map[string]IRecordSet // 主键引索 // for RecordByKey() Keys()
-		Position     int                   // 游标
+		KeyField     string                 // 主键字段
+		RecordsIndex map[string]*TRecordSet // 主键引索 // for RecordByKey() Keys()
+		Position     int                    // 游标
 		//Count int
 
 		FieldCount int //字段数
@@ -34,9 +34,9 @@ func NewDataSet() *TDataSet {
 	return &TDataSet{
 		Position: 0,
 		//	KeyField:     "id",
-		Data:         make([]IRecordSet, 0),
+		Data:         make([]*TRecordSet, 0),
 		fields:       make(map[string]*TFieldSet),
-		RecordsIndex: make(map[string]IRecordSet),
+		RecordsIndex: make(map[string]*TRecordSet),
 		//Count: 0,
 	}
 }
@@ -98,7 +98,7 @@ func (self *TDataSet) EOF() bool {
 }
 
 // return the current record
-func (self *TDataSet) Record() IRecordSet {
+func (self *TDataSet) Record() *TRecordSet {
 	if len(self.Data) == 0 {
 		return NewRecordSet()
 	}
@@ -112,7 +112,7 @@ func (self *TDataSet) Record() IRecordSet {
 
 // #检验字段合法
 //TODO 简化
-func (self *TDataSet) check_fields(record IRecordSet) error {
+func (self *TDataSet) check_fields(record *TRecordSet) error {
 	// #优先记录该数据集的字段
 	//fmt.Println("check_fields", len(self.fields), len(record.fields), self.Count())
 	if len(self.fields) == 0 && self.Count() < 1 {
@@ -147,7 +147,7 @@ func (self *TDataSet) check_fields(record IRecordSet) error {
 }
 
 // appending a record.Its fields will be come the standard format when it is the first record of this set
-func (self *TDataSet) AppendRecord(Record ...IRecordSet) error {
+func (self *TDataSet) AppendRecord(Record ...*TRecordSet) error {
 	//var fields map[string]int
 
 	for _, rec := range Record {
@@ -258,7 +258,7 @@ func (self *TDataSet) EditRecord(Key string, Record map[string]interface{}) bool
 }
 
 // get the record by field
-func (self *TDataSet) RecordByField(field string, val interface{}) (rec IRecordSet) {
+func (self *TDataSet) RecordByField(field string, val interface{}) (rec *TRecordSet) {
 	if field == "" || val == nil {
 		return nil
 	}
@@ -273,7 +273,7 @@ func (self *TDataSet) RecordByField(field string, val interface{}) (rec IRecordS
 }
 
 // 获取对应KeyFieldd值
-func (self *TDataSet) RecordByKey(Key string, key_field ...string) IRecordSet {
+func (self *TDataSet) RecordByKey(Key string, key_field ...string) *TRecordSet {
 	if len(self.RecordsIndex) == 0 {
 		if self.KeyField == "" {
 			if len(key_field) == 0 {
@@ -304,7 +304,7 @@ func (self *TDataSet) SetKeyField(key_field string) bool {
 	self.KeyField = key_field
 
 	// #全新
-	self.RecordsIndex = make(map[string]IRecordSet)
+	self.RecordsIndex = make(map[string]*TRecordSet)
 
 	// #赋值
 	for _, rec := range self.Data {
