@@ -10,7 +10,8 @@ import (
 )
 
 type (
-	IRecordSet interface {
+	// 废弃
+	_IRecordSet interface {
 		// set the dataset
 		SetDataset(ds IDataSet)
 
@@ -171,7 +172,7 @@ func (self *TRecordSet) SetByName(fs *TFieldSet, name string, value interface{},
 	return true
 }
 
-func (self *TRecordSet) FiledByIndex(index int) *TFieldSet {
+func (self *TRecordSet) FieldByIndex(index int) *TFieldSet {
 	// 检查零界
 	if index >= self.length {
 		return nil

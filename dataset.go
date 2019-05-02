@@ -40,6 +40,13 @@ func NewDataSet() *TDataSet {
 		//Count: 0,
 	}
 }
+func (self *TDataSet) Classic(value ...bool) bool {
+	if len(value) > 0 {
+		self.classic = value[0]
+	}
+
+	return self.classic
+}
 
 //TODO  当TDataSet无数据是返回错误
 //TODO HasField()bool
