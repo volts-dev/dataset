@@ -9,13 +9,13 @@ import (
 
 type (
 	TFieldSet struct {
-		RecSet  IRecordSet
+		RecSet  *TRecordSet
 		Name    string
 		IsValid bool // the field is using on dataset or temp field
 	}
 )
 
-func newFieldSet(name string, recset IRecordSet) *TFieldSet {
+func newFieldSet(name string, recset *TRecordSet) *TFieldSet {
 	return &TFieldSet{
 		RecSet:  recset,
 		Name:    name,
