@@ -18,13 +18,14 @@ type (
 		Data   []*TRecordSet         // []map[string]interface{}
 		fields map[string]*TFieldSet //保存字段
 		//Delta // 修改过的
-		KeyField     string                 // 主键字段
-		RecordsIndex map[string]*TRecordSet // 主键引索 // for RecordByKey() Keys()
-		Position     int                    // 游标
+		KeyField     string                      // 主键字段
+		RecordsIndex map[interface{}]*TRecordSet // 主键引索 // for RecordByKey() Keys()
+		Position     int                         // 游标
 		//Count int
 
 		FieldCount int //字段数
 
+		// classic 字段存储的数据包含有 Struct/Array/map 等
 		classic   bool // 是否存储着经典模式的数据 many2one字段会显示ID和Name
 		_pos_lock sync.RWMutex
 	}
@@ -36,7 +37,7 @@ func NewDataSet() *TDataSet {
 		//	KeyField:     "id",
 		Data:         make([]*TRecordSet, 0),
 		fields:       make(map[string]*TFieldSet),
-		RecordsIndex: make(map[string]*TRecordSet),
+		RecordsIndex: make(map[interface{}]*TRecordSet),
 		//Count: 0,
 	}
 }
@@ -83,15 +84,15 @@ func (self *TDataSet) Count() int {
 // set the Pos on first
 func (self *TDataSet) First() {
 	self._pos_lock.Lock()
-	defer self._pos_lock.Unlock()
 	self.Position = 0
+	self._pos_lock.Unlock()
 }
 
 // goto next record
 func (self *TDataSet) Next() {
 	self._pos_lock.Lock()
-	defer self._pos_lock.Unlock()
 	self.Position++
+	self._pos_lock.Unlock()
 }
 
 // is the end of the data list
@@ -100,7 +101,7 @@ func (self *TDataSet) Eof() bool {
 }
 
 //废弃 TODO last
-func (self *TDataSet) EOF() bool {
+func (self *TDataSet) __EOF() bool {
 	return self.Position == len(self.Data)
 }
 
@@ -280,7 +281,7 @@ func (self *TDataSet) RecordByField(field string, val interface{}) (rec *TRecord
 }
 
 // 获取对应KeyFieldd值
-func (self *TDataSet) RecordByKey(Key string, key_field ...string) *TRecordSet {
+func (self *TDataSet) RecordByKey(Key interface{}, key_field ...string) *TRecordSet {
 	if len(self.RecordsIndex) == 0 {
 		if self.KeyField == "" {
 			if len(key_field) == 0 {
@@ -311,7 +312,7 @@ func (self *TDataSet) SetKeyField(key_field string) bool {
 	self.KeyField = key_field
 
 	// #全新
-	self.RecordsIndex = make(map[string]*TRecordSet)
+	self.RecordsIndex = make(map[interface{}]*TRecordSet)
 
 	// #赋值
 	for _, rec := range self.Data {
@@ -319,7 +320,7 @@ func (self *TDataSet) SetKeyField(key_field string) bool {
 		lIdSet := rec.FieldByName(key_field)
 		//fmt.Println("idccc", key_field, lIdSet, len(self.RecordsIndex))
 		if lIdSet != nil {
-			self.RecordsIndex[lIdSet.AsString()] = rec //保存ID 对应的 Record
+			self.RecordsIndex[lIdSet.AsInterface()] = rec //保存ID 对应的 Record
 		}
 	}
 
@@ -337,7 +338,7 @@ func (self *TDataSet) Fields() map[string]*TFieldSet {
 
 // return all the keys value
 // 返回所有记录的主键值
-func (self *TDataSet) Keys(field ...string) (res []string) {
+func (self *TDataSet) Keys(field ...string) (res []interface{}) {
 	// #默认
 	lKeyField := "id"
 
@@ -358,7 +359,7 @@ func (self *TDataSet) Keys(field ...string) (res []string) {
 		self.SetKeyField(lKeyField)
 	}
 
-	res = make([]string, 0)
+	res = make([]interface{}, 0)
 	for key, _ := range self.RecordsIndex {
 		res = append(res, key)
 	}
