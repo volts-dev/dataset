@@ -286,7 +286,7 @@ func (self *TRecordSet) AsStruct(target interface{}, classic ...bool) error {
 	for idx, name := range self.fields {
 		lFieldValue := lStruct.FieldByName(utils.TitleCasedName(name))
 		if !lFieldValue.IsValid() || !lFieldValue.CanSet() {
-			log.Printf(PKG_NAME+"Target's filed %s is not valid or cannot set", name)
+			log.Printf(PKG_NAME+"Target's filed %v@%s is not valid or cannot set IsValid:%v CanSet:%v", lStruct.Type().Name(), name, lFieldValue.IsValid(), lFieldValue.CanSet())
 			continue
 		}
 
@@ -307,6 +307,7 @@ func (self *TRecordSet) AsStruct(target interface{}, classic ...bool) error {
 			continue
 		}
 
+		// TODO 优化转化
 		//logger.Dbg("AsStruct", name, lFieldValue.Type(), lItfVal, reflect.TypeOf(lItfVal), lVal, self.values[idx])
 		if lFieldValue.Type().Kind() != reflect.TypeOf(lItfVal).Kind() {
 			switch lFieldValue.Type().Kind() {
@@ -314,9 +315,13 @@ func (self *TRecordSet) AsStruct(target interface{}, classic ...bool) error {
 				lItfVal = utils.Itf2Bool(lItfVal)
 			case reflect.String:
 				lItfVal = utils.Itf2Str(lItfVal)
-			case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+			case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32:
+				lItfVal = utils.Itf2Int(lItfVal)
+			case reflect.Int64:
 				lItfVal = utils.Itf2Int64(lItfVal)
-			case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+			case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32:
+				lItfVal = utils.Itf2Int(lItfVal)
+			case reflect.Uint64:
 				lItfVal = utils.Itf2Int64(lItfVal)
 			case reflect.Float32:
 				lItfVal = utils.Itf2Float32(lItfVal)

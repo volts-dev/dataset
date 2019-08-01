@@ -21,9 +21,7 @@ type (
 		KeyField     string                      // 主键字段
 		RecordsIndex map[interface{}]*TRecordSet // 主键引索 // for RecordByKey() Keys()
 		Position     int                         // 游标
-		//Count int
-
-		FieldCount int //字段数
+		FieldCount   int                         //字段数
 
 		// classic 字段存储的数据包含有 Struct/Array/map 等
 		classic   bool // 是否存储着经典模式的数据 many2one字段会显示ID和Name
@@ -97,11 +95,6 @@ func (self *TDataSet) Next() {
 
 // is the end of the data list
 func (self *TDataSet) Eof() bool {
-	return self.Position == len(self.Data)
-}
-
-//废弃 TODO last
-func (self *TDataSet) __EOF() bool {
 	return self.Position == len(self.Data)
 }
 
