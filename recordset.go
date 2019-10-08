@@ -64,7 +64,7 @@ type (
 		values        []interface{}  // []string
 		ClassicValues []interface{}  // 存储经典字段值
 		nameIndex     map[string]int // TODO treemap
-		length        int
+		fieldCount    int
 		isEmpty       bool
 	}
 )
@@ -76,7 +76,7 @@ func NewRecordSet(record ...map[string]interface{}) *TRecordSet {
 		ClassicValues: make([]interface{}, 0),
 		nameIndex:     make(map[string]int),
 
-		length: 0,
+		fieldCount: 0,
 	}
 
 	if len(record) == 0 {
@@ -93,7 +93,7 @@ func NewRecordSet(record ...map[string]interface{}) *TRecordSet {
 
 	}
 	//#优先计算长度供Get Set设置
-	recset.length = idx + 1
+	recset.fieldCount = idx + 1
 	recset.isEmpty = idx == 0
 
 	return recset
@@ -103,13 +103,29 @@ func (self *TRecordSet) FieldIndex(name string) int {
 	return self.nameIndex[name]
 }
 
-func (self *TRecordSet) Fields() []string {
+func (self *TRecordSet) resetByFields() {
+	self.fieldCount = len(self.fields)
+	self.values = make([]interface{}, self.fieldCount)
+
+	// rebuild indexs
+	for idx, name := range self.fields {
+		self.nameIndex[name] = idx
+	}
+}
+
+func (self *TRecordSet) Fields(fields ...string) []string {
+	if fields != nil {
+		//reset all
+		self.fields = fields
+		self.resetByFields()
+	}
+
 	return self.fields
 }
 
 // TODO 函数改为非Exported
 func (self *TRecordSet) Get(index int, classic bool) interface{} {
-	if index >= self.length {
+	if index >= self.fieldCount {
 		return nil
 	}
 
@@ -118,7 +134,7 @@ func (self *TRecordSet) Get(index int, classic bool) interface{} {
 
 // TODO 函数改为非Exported
 func (self *TRecordSet) Set(index int, value interface{}, classic bool) bool {
-	if index >= self.length {
+	if index >= self.fieldCount {
 		return false
 	}
 
@@ -131,7 +147,7 @@ func (self *TRecordSet) Set(index int, value interface{}, classic bool) bool {
 	return true
 }
 func (self *TRecordSet) Length() int {
-	return self.length
+	return self.fieldCount
 }
 
 func (self *TRecordSet) SetDataset(ds IDataSet) {
@@ -143,14 +159,22 @@ func (self *TRecordSet) GetByName(name string, classic bool) interface{} {
 		return self.Get(index, classic)
 	}
 
-	return ""
+	return nil
 }
 func (self *TRecordSet) IsEmpty() bool {
 	return self.isEmpty
 }
 
-func (self *TRecordSet) SetByName(fs *TFieldSet, name string, value interface{}, classic bool) bool {
-	//字段被纳入Dataset.Fields
+func (self *TRecordSet) SetByName(name string, value interface{}, classic bool) bool {
+	if index, ok := self.nameIndex[name]; ok {
+		return self.Set(index, value, classic)
+	}
+
+	return false
+}
+
+//字段被纳入Dataset.Fields
+func (self *TRecordSet) setByName(fs *TFieldSet, name string, value interface{}, classic bool) bool {
 	fs.IsValid = true
 
 	if index, ok := self.nameIndex[name]; ok {
@@ -158,15 +182,13 @@ func (self *TRecordSet) SetByName(fs *TFieldSet, name string, value interface{},
 	} else {
 		self.nameIndex[name] = len(self.values)
 		self.fields = append(self.fields, name)
-		//self.values = append(self.values, value) //TODO
 		if classic {
 			self.ClassicValues = append(self.ClassicValues, value)
 		} else {
 			self.values = append(self.values, value)
-			//self.ClassicValues = append(self.ClassicValues, nil)
 		}
 
-		self.length = len(self.values)
+		self.fieldCount = len(self.values)
 	}
 
 	return true
@@ -174,14 +196,14 @@ func (self *TRecordSet) SetByName(fs *TFieldSet, name string, value interface{},
 
 func (self *TRecordSet) FieldByIndex(index int) *TFieldSet {
 	// 检查零界
-	if index >= self.length {
+	if index >= self.fieldCount {
 		return nil
 	}
 
 	field := self.fields[index]
 	if self.dataSet != nil {
 		// 检查零界
-		if len(self.dataSet.Fields()) != self.length {
+		if len(self.dataSet.Fields()) != self.fieldCount {
 			return nil
 		}
 

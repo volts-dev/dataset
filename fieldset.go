@@ -30,7 +30,7 @@ func (self *TFieldSet) AsInterface(value ...interface{}) (result interface{}) {
 	}
 
 	if len(value) != 0 {
-		self.RecSet.SetByName(self, self.Name, value[0], false)
+		self.RecSet.setByName(self, self.Name, value[0], false)
 		return value[0]
 	}
 
@@ -44,7 +44,7 @@ func (self *TFieldSet) AsClassic(value ...interface{}) interface{} {
 	}
 
 	if len(value) != 0 {
-		self.RecSet.SetByName(self, self.Name, value[0], true)
+		self.RecSet.setByName(self, self.Name, value[0], true)
 		return value[0]
 	}
 
@@ -59,7 +59,7 @@ func (self *TFieldSet) AsString(value ...string) string {
 	}
 
 	if len(value) != 0 {
-		self.RecSet.SetByName(self, self.Name, value[0], false)
+		self.RecSet.setByName(self, self.Name, value[0], false)
 		return value[0]
 	}
 
@@ -73,7 +73,7 @@ func (self *TFieldSet) AsInteger(value ...int64) (result int64) {
 	}
 
 	if len(value) != 0 {
-		self.RecSet.SetByName(self, self.Name, value[0], false)
+		self.RecSet.setByName(self, self.Name, value[0], false)
 		return value[0]
 	}
 
@@ -88,7 +88,7 @@ func (self *TFieldSet) AsBoolean(value ...bool) bool {
 	}
 
 	if len(value) != 0 {
-		self.RecSet.SetByName(self, self.Name, value[0], false)
+		self.RecSet.setByName(self, self.Name, value[0], false)
 		return value[0]
 	}
 
@@ -102,7 +102,7 @@ func (self *TFieldSet) AsDateTime(value ...time.Time) time.Time {
 	}
 
 	if len(value) != 0 {
-		self.RecSet.SetByName(self, self.Name, value[0].Format(time.RFC3339), false)
+		self.RecSet.setByName(self, self.Name, value[0].Format(time.RFC3339), false)
 		return value[0]
 
 	}
@@ -117,7 +117,7 @@ func (self *TFieldSet) AsFloat(value ...float64) (result float64) {
 	}
 
 	if len(value) != 0 {
-		self.RecSet.SetByName(self, self.Name, value[0], false)
+		self.RecSet.setByName(self, self.Name, value[0], false)
 		return value[0]
 	}
 
