@@ -70,17 +70,10 @@ type (
 )
 
 func NewRecordSet(record ...map[string]interface{}) *TRecordSet {
-	recset := &TRecordSet{
-		fields:        make([]string, 0),
-		values:        make([]interface{}, 0),
-		ClassicValues: make([]interface{}, 0),
-		nameIndex:     make(map[string]int),
-
-		fieldCount: 0,
-	}
+	recset := &TRecordSet{}
+	recset.Reset()
 
 	if len(record) == 0 {
-		recset.isEmpty = true
 		return recset
 	}
 
@@ -95,8 +88,18 @@ func NewRecordSet(record ...map[string]interface{}) *TRecordSet {
 	//#优先计算长度供Get Set设置
 	recset.fieldCount = idx + 1
 	recset.isEmpty = idx == 0
-
 	return recset
+}
+
+// reset all data to blank
+func (self *TRecordSet) Reset() {
+	self.dataSet = nil
+	self.fields = make([]string, 0)
+	self.values = make([]interface{}, 0)
+	self.ClassicValues = make([]interface{}, 0)
+	self.nameIndex = make(map[string]int)
+	self.fieldCount = 0
+	self.isEmpty = true
 }
 
 func (self *TRecordSet) FieldIndex(name string) int {
