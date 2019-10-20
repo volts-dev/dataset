@@ -6,6 +6,8 @@ import (
 	"sync"
 )
 
+// TODO　使用全局池回收利用
+
 const PKG_NAME = "[dataset.go]"
 
 type (
@@ -14,18 +16,17 @@ type (
 	}
 
 	TDataSet struct {
-		Name   string                // table name
-		Data   []*TRecordSet         // []map[string]interface{}
-		fields map[string]*TFieldSet //保存字段
-		//Delta // 修改过的
+		Name         string                      // table name
+		Data         []*TRecordSet               // []map[string]interface{}
+		fields       map[string]*TFieldSet       //保存字段
 		KeyField     string                      // 主键字段
 		RecordsIndex map[interface{}]*TRecordSet // 主键引索 // for RecordByKey() Keys()
 		Position     int                         // 游标
 		FieldCount   int                         //字段数
 
 		// classic 字段存储的数据包含有 Struct/Array/map 等
-		classic   bool // 是否存储着经典模式的数据 many2one字段会显示ID和Name
-		_pos_lock sync.RWMutex
+		classic      bool // 是否存储着经典模式的数据 many2one字段会显示ID和Name
+		positionLock sync.RWMutex
 	}
 )
 
@@ -36,7 +37,6 @@ func NewDataSet() *TDataSet {
 		Data:         make([]*TRecordSet, 0),
 		fields:       make(map[string]*TFieldSet),
 		RecordsIndex: make(map[interface{}]*TRecordSet),
-		//Count: 0,
 	}
 }
 func (self *TDataSet) Classic(value ...bool) bool {
@@ -81,16 +81,16 @@ func (self *TDataSet) Count() int {
 
 // set the Pos on first
 func (self *TDataSet) First() {
-	self._pos_lock.Lock()
+	self.positionLock.Lock()
 	self.Position = 0
-	self._pos_lock.Unlock()
+	self.positionLock.Unlock()
 }
 
 // goto next record
 func (self *TDataSet) Next() {
-	self._pos_lock.Lock()
+	self.positionLock.Lock()
 	self.Position++
-	self._pos_lock.Unlock()
+	self.positionLock.Unlock()
 }
 
 // is the end of the data list
@@ -148,10 +148,8 @@ func (self *TDataSet) check_fields(record *TRecordSet) error {
 }
 
 // appending a record.Its fields will be come the standard format when it is the first record of this set
-func (self *TDataSet) AppendRecord(Record ...*TRecordSet) error {
-	//var fields map[string]int
-
-	for _, rec := range Record {
+func (self *TDataSet) AppendRecord(records ...*TRecordSet) error {
+	for _, rec := range records {
 		if rec == nil {
 			continue
 		}
@@ -174,55 +172,9 @@ func (self *TDataSet) AppendRecord(Record ...*TRecordSet) error {
 }
 
 //push row to dataset
-func (self *TDataSet) NewRecord(Record map[string]interface{}) bool {
-	//var lRec *TRecordSet
-	//logger.Dbg("idex", Record)
-	lRec := NewRecordSet(Record)
-
-	//if err := self.check_fields(lRec); err != nil {
-	//	logger.ErrLn(err.Error())
-	//}
-
-	self.AppendRecord(lRec)
-	//	var err error
-	/*	lValue := ""
-		for field, val := range Record {
-			if val == nil {
-				lValue = ""
-			} else {
-				rawValue := reflect.Indirect(reflect.ValueOf(val))
-				//if row is null then ignore
-				if rawValue.Interface() == nil {
-					continue
-				}
-
-				lValue, err = val2Str(&rawValue)
-				if logger.Err(err) {
-					return false
-				}
-
-			}
-			//Record[field] = data
-			lRec.NameIndex[field] = len(lRec.Fields) // 先于 lRec.Fields 添加不需 -1
-			lRec.Fields = append(lRec.Fields, field)
-			lRec.Values = append(lRec.Values, lValue)
-
-			if self.KeyField != "" {
-				if field == self.KeyField || field == "id" {
-					self.RecordsIndex[lValue] = lRec //保存ID 对应的 Record
-				}
-			}
-
-		}
-	*/
-	/* # 非Count查询时提供多行索引
-	if self.KeyField != "" && len(lRec.Fields) > 1 && lRec.GetByName("count") == nil {
-		lIdSet := lRec.GetByName(self.KeyField)
-		if lIdSet != nil {
-			self.RecordsIndex[lIdSet.AsString()] = lRec //保存ID 对应的 Record
-		}
-	}
-	*/
+func (self *TDataSet) NewRecord(record map[string]interface{}) bool {
+	rec := NewRecordSet(record)
+	self.AppendRecord(rec)
 
 	return true
 }
@@ -258,7 +210,7 @@ func (self *TDataSet) EditRecord(Key string, Record map[string]interface{}) bool
 	return true
 }
 
-// get the record by field
+// query the record by field
 func (self *TDataSet) RecordByField(field string, val interface{}) (rec *TRecordSet) {
 	if field == "" || val == nil {
 		return nil
@@ -266,7 +218,7 @@ func (self *TDataSet) RecordByField(field string, val interface{}) (rec *TRecord
 
 	for _, rec = range self.Data {
 		i := rec.FieldIndex(field)
-		if rec.Get(i, false) == val {
+		if rec.get(i, false) == val {
 			return rec
 		}
 	}

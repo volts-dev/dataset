@@ -127,7 +127,7 @@ func (self *TRecordSet) Fields(fields ...string) []string {
 }
 
 // TODO 函数改为非Exported
-func (self *TRecordSet) Get(index int, classic bool) interface{} {
+func (self *TRecordSet) get(index int, classic bool) interface{} {
 	if index >= self.fieldCount {
 		return nil
 	}
@@ -136,7 +136,7 @@ func (self *TRecordSet) Get(index int, classic bool) interface{} {
 }
 
 // TODO 函数改为非Exported
-func (self *TRecordSet) Set(index int, value interface{}, classic bool) bool {
+func (self *TRecordSet) set(index int, value interface{}, classic bool) bool {
 	if index >= self.fieldCount {
 		return false
 	}
@@ -159,7 +159,7 @@ func (self *TRecordSet) SetDataset(ds IDataSet) {
 
 func (self *TRecordSet) GetByName(name string, classic bool) interface{} {
 	if index, ok := self.nameIndex[name]; ok {
-		return self.Get(index, classic)
+		return self.get(index, classic)
 	}
 
 	return nil
@@ -168,9 +168,10 @@ func (self *TRecordSet) IsEmpty() bool {
 	return self.isEmpty
 }
 
+// !NOTE! 该函数仅供修改不做添加字段
 func (self *TRecordSet) SetByName(name string, value interface{}, classic bool) bool {
 	if index, ok := self.nameIndex[name]; ok {
-		return self.Set(index, value, classic)
+		return self.set(index, value, classic)
 	}
 
 	return false
@@ -181,7 +182,7 @@ func (self *TRecordSet) setByName(fs *TFieldSet, name string, value interface{},
 	fs.IsValid = true
 
 	if index, ok := self.nameIndex[name]; ok {
-		return self.Set(index, value, classic)
+		return self.set(index, value, classic)
 	} else {
 		self.nameIndex[name] = len(self.values)
 		self.fields = append(self.fields, name)
