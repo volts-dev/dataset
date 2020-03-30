@@ -10,56 +10,8 @@ import (
 )
 
 type (
-	// 废弃
-	_IRecordSet interface {
-		// set the dataset
-		SetDataset(ds IDataSet)
-
-		// get value by name
-		GetByName(name string, classic bool) interface{}
-
-		// set value by name
-		SetByName(field *TFieldSet, name string, value interface{}, classic bool) bool
-
-		// return the field idx of the field list
-		FieldIndex(name string) int
-
-		// return all fields' names
-		Fields() []string
-
-		// return fields count
-		Length() int
-
-		// get field value by name
-		FieldByName(name string) *TFieldSet
-
-		// get field value by index
-		FiledByIndex(index int) *TFieldSet
-
-		// get value by index
-		Get(index int, classic bool) interface{}
-
-		// set value by index
-		Set(index int, value interface{}, classic bool) bool
-
-		// is it empty
-		IsEmpty() bool
-
-		// covert to Json string
-		AsJson() (string, error)
-
-		// covert to map[string]interface{}
-		AsItfMap() map[string]interface{}
-
-		// covert to map[string]string
-		AsStrMap() map[string]string
-
-		// covert to struct using reflect
-		AsStruct(target interface{}, classic ...bool) error
-	}
-
 	TRecordSet struct {
-		dataSet       IDataSet
+		dataset       IDataSet
 		fields        []string
 		values        []interface{}  // []string
 		ClassicValues []interface{}  // 存储经典字段值
@@ -93,7 +45,7 @@ func NewRecordSet(record ...map[string]interface{}) *TRecordSet {
 
 // reset all data to blank
 func (self *TRecordSet) Reset() {
-	self.dataSet = nil
+	self.dataset = nil
 	self.fields = make([]string, 0)
 	self.values = make([]interface{}, 0)
 	self.ClassicValues = make([]interface{}, 0)
@@ -154,7 +106,7 @@ func (self *TRecordSet) Length() int {
 }
 
 func (self *TRecordSet) SetDataset(ds IDataSet) {
-	self.dataSet = ds
+	self.dataset = ds
 }
 
 func (self *TRecordSet) GetByName(name string, classic bool) interface{} {
@@ -205,13 +157,13 @@ func (self *TRecordSet) FieldByIndex(index int) *TFieldSet {
 	}
 
 	field := self.fields[index]
-	if self.dataSet != nil {
+	if self.dataset != nil {
 		// 检查零界
-		if len(self.dataSet.Fields()) != self.fieldCount {
+		if len(self.dataset.Fields()) != self.fieldCount {
 			return nil
 		}
 
-		res := self.dataSet.Fields()[field]
+		res := self.dataset.Fields()[field]
 		res.RecSet = self
 		return res
 	} else {
@@ -219,7 +171,7 @@ func (self *TRecordSet) FieldByIndex(index int) *TFieldSet {
 		res := newFieldSet(field, self)
 		res.IsValid = field != ""
 		/*res = &TFieldSet{
-			//dataSet: self.dataSet,
+			//dataset: self.dataset,
 			RecSet: self,
 			Name:   field,
 			IsNil:  true,
@@ -233,8 +185,8 @@ func (self *TRecordSet) FieldByIndex(index int) *TFieldSet {
 // 获取某个
 func (self *TRecordSet) FieldByName(name string) *TFieldSet {
 	// 优先验证Dataset
-	if self.dataSet != nil {
-		if field, has := self.dataSet.Fields()[name]; has {
+	if self.dataset != nil {
+		if field, has := self.dataset.Fields()[name]; has {
 			if field != nil {
 				field.RecSet = self
 				return field //self.values[index]
@@ -246,7 +198,7 @@ func (self *TRecordSet) FieldByName(name string) *TFieldSet {
 	field := newFieldSet(name, self)
 	field.IsValid = utils.InStrings(name, self.fields...) != -1
 	/*field = &TFieldSet{
-		//dataSet: self.dataSet,
+		//dataset: self.dataset,
 		RecSet: self,
 		Name:   name,
 		//IsNil:  true,
@@ -320,7 +272,7 @@ func (self *TRecordSet) AsStruct(target interface{}, classic ...bool) error {
 		var lItfVal interface{}
 		var lVal reflect.Value
 		if lClassic {
-			//self.dataSet.
+			//self.dataset.
 			//lVal = reflect.ValueOf(self.ClassicValues[idx])
 			lItfVal = self.ClassicValues[idx]
 		} else {
