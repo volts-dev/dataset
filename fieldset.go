@@ -1,9 +1,9 @@
 package dataset
 
 import (
-	"log"
 	"time"
 
+	"github.com/volts-dev/logger"
 	"github.com/volts-dev/utils"
 )
 
@@ -25,7 +25,7 @@ func newFieldSet(name string, recset *TRecordSet) *TFieldSet {
 
 func (self *TFieldSet) AsInterface(value ...interface{}) (result interface{}) {
 	if self == nil {
-		log.Println("Can not covert value into interface{} since the field is invalidation!")
+		logger.Warnf("Can not covert value into interface{} since the field is invalidation!")
 		return
 	}
 
@@ -39,7 +39,7 @@ func (self *TFieldSet) AsInterface(value ...interface{}) (result interface{}) {
 
 func (self *TFieldSet) AsClassic(value ...interface{}) interface{} {
 	if self == nil {
-		log.Println("Can not covert value into interface{} since the field is invalidation!")
+		logger.Warnf("Can not covert value into interface{} since the field is invalidation!")
 		return nil
 	}
 
@@ -54,7 +54,7 @@ func (self *TFieldSet) AsClassic(value ...interface{}) interface{} {
 //
 func (self *TFieldSet) AsString(value ...string) string {
 	if self == nil {
-		log.Println("Can not covert value into string since the field is invalidation!")
+		logger.Warnf("Can not covert value into string since the field is invalidation!")
 		return ""
 	}
 
@@ -68,7 +68,7 @@ func (self *TFieldSet) AsString(value ...string) string {
 
 func (self *TFieldSet) AsInteger(value ...int64) (result int64) {
 	if self == nil {
-		log.Println("Can not covert value into int64 since the field is invalidation!")
+		logger.Warnf("Can not covert value into int64 since the field is invalidation!")
 		return 0
 	}
 
@@ -83,7 +83,7 @@ func (self *TFieldSet) AsInteger(value ...int64) (result int64) {
 // set/get value of field as bool type
 func (self *TFieldSet) AsBoolean(value ...bool) bool {
 	if self == nil {
-		log.Println("Can not covert value into bool since the field is invalidation!")
+		logger.Warnf("Can not covert value into bool since the field is invalidation!")
 		return false
 	}
 
@@ -97,7 +97,7 @@ func (self *TFieldSet) AsBoolean(value ...bool) bool {
 
 func (self *TFieldSet) AsDateTime(value ...time.Time) time.Time {
 	if self == nil {
-		log.Println("Can not covert value into time.Time since the field is invalidation!")
+		logger.Warnf("Can not covert value into time.Time since the field is invalidation!")
 		return time.Time{}
 	}
 
@@ -112,7 +112,7 @@ func (self *TFieldSet) AsDateTime(value ...time.Time) time.Time {
 
 func (self *TFieldSet) AsFloat(value ...float64) (result float64) {
 	if self == nil {
-		log.Println("Can not covert value into float64 since the field is invalidation!")
+		logger.Warnf("Can not covert value into float64 since the field is invalidation!")
 		return 0.0
 	}
 

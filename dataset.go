@@ -1,9 +1,9 @@
 package dataset
 
 import (
-	"fmt"
-	"log"
 	"sync"
+
+	"github.com/volts-dev/logger"
 )
 
 // TODO　使用全局池回收利用
@@ -11,10 +11,6 @@ import (
 const PKG_NAME = "[dataset.go]"
 
 type (
-	IDataSet interface {
-		Fields() map[string]*TFieldSet
-	}
-
 	TDataSet struct {
 		Name         string                      // table name
 		Data         []*TRecordSet               // []map[string]interface{}
@@ -32,8 +28,7 @@ type (
 
 func NewDataSet() *TDataSet {
 	return &TDataSet{
-		Position: 0,
-		//	KeyField:     "id",
+		Position:     0,
 		Data:         make([]*TRecordSet, 0),
 		fields:       make(map[string]*TFieldSet),
 		RecordsIndex: make(map[interface{}]*TRecordSet),
@@ -52,18 +47,11 @@ func (self *TDataSet) Classic(value ...bool) bool {
 func (self *TDataSet) FieldByName(field string) (fieldSet *TFieldSet) {
 	var has bool
 	if fieldSet, has = self.fields[field]; has {
-		//fmt.Println("FieldByName has", fieldSet, fieldSet)
-		fieldSet.RecSet = self.Record() // self.Data[self.Position]
+		fieldSet.RecSet = self.Record() // point to the current record self.Data[self.Position]
 		return
 	} else {
 		// 创建一个空的
 		fieldSet = newFieldSet(field, self.Record())
-		/*fieldSet = &TFieldSet{
-			//			DataSet: self,
-			Name:   field,
-			RecSet: self.Record(), // self.Data[self.Position],
-			IsNil:  true,
-		}*/
 	}
 
 	return
@@ -77,6 +65,12 @@ func (self *TDataSet) IsEmpty() bool {
 // return the number of data
 func (self *TDataSet) Count() int {
 	return len(self.Data)
+}
+
+// clear all records
+func (self *TDataSet) Clear() {
+	self.Data = nil
+	self.First()
 }
 
 // set the Pos on first
@@ -100,12 +94,16 @@ func (self *TDataSet) Eof() bool {
 
 // return the current record
 func (self *TDataSet) Record() *TRecordSet {
-	if len(self.Data) == 0 {
-		return NewRecordSet()
-	}
-
-	if rs := self.Data[self.Position]; rs != nil {
-		return rs
+	count := len(self.Data)
+	if count == 0 || count <= self.Position {
+		// 规避零界点取值
+		rec := NewRecordSet()
+		rec.dataset = self
+		return rec
+	} else {
+		if rs := self.Data[self.Position]; rs != nil {
+			return rs
+		}
 	}
 
 	return nil
@@ -115,17 +113,10 @@ func (self *TDataSet) Record() *TRecordSet {
 //TODO 简化
 func (self *TDataSet) check_fields(record *TRecordSet) error {
 	// #优先记录该数据集的字段
-	//fmt.Println("check_fields", len(self.fields), len(record.fields), self.Count())
 	if len(self.fields) == 0 && self.Count() < 1 {
 		for _, field := range record.Fields() {
 			if field != "" { // TODO 不应该有空值 需检查
-				//fmt.Println("field", field)
 				fieldSet := newFieldSet(field, nil)
-				/*fieldSet := &TFieldSet{
-					//					DataSet: self,
-					//RecSet:  self.Data[self.Position],
-					Name: field,
-				}*/
 				self.fields[field] = fieldSet
 			}
 		}
@@ -139,7 +130,7 @@ func (self *TDataSet) check_fields(record *TRecordSet) error {
 	for _, field := range record.Fields() {
 		if field != "" {
 			if _, has := self.fields[field]; !has {
-				return fmt.Errorf("field %v is not in dataset!", field)
+				return logger.Errf("The field name < %s > is not in this dataset! please to set field by < dataset.SetFields >", field)
 			}
 		}
 	}
@@ -147,6 +138,7 @@ func (self *TDataSet) check_fields(record *TRecordSet) error {
 	return nil
 }
 
+// NOTE 第一条记录决定空dataset的fields
 // appending a record.Its fields will be come the standard format when it is the first record of this set
 func (self *TDataSet) AppendRecord(records ...*TRecordSet) error {
 	for _, rec := range records {
@@ -159,10 +151,10 @@ func (self *TDataSet) AppendRecord(records ...*TRecordSet) error {
 		//}
 
 		if err := self.check_fields(rec); err != nil {
-			log.Printf(`TDataSet.AppendRecord():%v`, err.Error())
+			logger.Err(err)
 
 		} else { //#TODO 考虑是否为复制
-			rec.SetDataset(self) //# 将其归为
+			rec.dataset = self //# 将其归为
 			self.Data = append(self.Data, rec)
 			self.Position = len(self.Data) - 1
 		}
@@ -230,21 +222,29 @@ func (self *TDataSet) RecordByKey(Key interface{}, key_field ...string) *TRecord
 	if len(self.RecordsIndex) == 0 {
 		if self.KeyField == "" {
 			if len(key_field) == 0 {
-				log.Printf(`You should point out the key_field name!`) //#重要提示
+				logger.Warnf(`You should point out the key_field name!`) //#重要提示
 			} else {
 				if !self.SetKeyField(key_field[0]) {
-					log.Printf(`Set key_field fail when call RecordByKey(key_field:%v)!`, key_field[0])
+					logger.Warnf(`Set key_field fail when call RecordByKey(key_field:%v)!`, key_field[0])
 				}
 			}
 		} else {
 			if !self.SetKeyField(self.KeyField) {
-				log.Printf(`Set key_field fail when call RecordByKey(self.KeyField:%v)!`, self.KeyField)
+				logger.Warnf(`Set key_field fail when call RecordByKey(self.KeyField:%v)!`, self.KeyField)
 			}
 		}
 	}
 
 	//idx := self.RecordsIndex[Key]
 	return self.RecordsIndex[Key]
+}
+
+// 设置固定字段
+func (self *TDataSet) SetFields(fields ...string) {
+	for _, name := range fields {
+		fieldSet := newFieldSet(name, nil)
+		self.fields[name] = fieldSet
+	}
 }
 
 // set the field as key
@@ -279,6 +279,11 @@ func (self *TDataSet) IsClassic() bool {
 
 func (self *TDataSet) Fields() map[string]*TFieldSet {
 	return self.fields
+}
+
+func (self *TDataSet) HasField(name string) bool {
+	_, has := self.fields[name]
+	return has
 }
 
 // return all the keys value

@@ -2,27 +2,30 @@ package dataset
 
 import (
 	"encoding/json"
-	"log"
 	"reflect"
 	"time"
 
+	"github.com/volts-dev/logger"
 	"github.com/volts-dev/utils"
 )
 
 type (
 	TRecordSet struct {
-		dataset       IDataSet
+		dataset       *TDataSet
 		fields        []string
 		values        []interface{}  // []string
 		ClassicValues []interface{}  // 存储经典字段值
 		nameIndex     map[string]int // TODO treemap
 		fieldCount    int
 		isEmpty       bool
+		index         int // an index of dataset.data
 	}
 )
 
 func NewRecordSet(record ...map[string]interface{}) *TRecordSet {
-	recset := &TRecordSet{}
+	recset := &TRecordSet{
+		index: -1,
+	}
 	recset.Reset()
 
 	if len(record) == 0 {
@@ -58,6 +61,7 @@ func (self *TRecordSet) FieldIndex(name string) int {
 	return self.nameIndex[name]
 }
 
+// 重置记录字段索引
 func (self *TRecordSet) resetByFields() {
 	self.fieldCount = len(self.fields)
 	self.values = make([]interface{}, self.fieldCount)
@@ -87,7 +91,6 @@ func (self *TRecordSet) get(index int, classic bool) interface{} {
 	return self.values[index]
 }
 
-// TODO 函数改为非Exported
 func (self *TRecordSet) set(index int, value interface{}, classic bool) bool {
 	if index >= self.fieldCount {
 		return false
@@ -101,12 +104,13 @@ func (self *TRecordSet) set(index int, value interface{}, classic bool) bool {
 
 	return true
 }
+
 func (self *TRecordSet) Length() int {
 	return self.fieldCount
 }
 
-func (self *TRecordSet) SetDataset(ds IDataSet) {
-	self.dataset = ds
+func (self *TRecordSet) SetDataset(dataset *TDataSet) {
+	self.dataset = dataset
 }
 
 func (self *TRecordSet) GetByName(name string, classic bool) interface{} {
@@ -133,8 +137,14 @@ func (self *TRecordSet) SetByName(name string, value interface{}, classic bool) 
 func (self *TRecordSet) setByName(fs *TFieldSet, name string, value interface{}, classic bool) bool {
 	fs.IsValid = true
 
+	// 如果是一个单独非dataset下的记录
+	if self.dataset != nil && self.index != -1 && !self.dataset.HasField(name) {
+		logger.Errf("The field name < %s > is not in this dataset! please to set field by < dataset.SetFields >", name)
+		return false
+	}
+
 	if index, ok := self.nameIndex[name]; ok {
-		return self.set(index, value, classic)
+		self.set(index, value, classic)
 	} else {
 		self.nameIndex[name] = len(self.values)
 		self.fields = append(self.fields, name)
@@ -145,6 +155,12 @@ func (self *TRecordSet) setByName(fs *TFieldSet, name string, value interface{},
 		}
 
 		self.fieldCount = len(self.values)
+	}
+
+	// 插入新记录到dataset
+	if self.dataset != nil && self.index == -1 {
+		self.dataset.AppendRecord(self)    // 插入数据后Position会变更到当前记录
+		self.index = self.dataset.Position // 记录当前索引值
 	}
 
 	return true
@@ -264,7 +280,7 @@ func (self *TRecordSet) AsStruct(target interface{}, classic ...bool) error {
 	for idx, name := range self.fields {
 		lFieldValue := lStruct.FieldByName(utils.TitleCasedName(name))
 		if !lFieldValue.IsValid() || !lFieldValue.CanSet() {
-			log.Printf(PKG_NAME+"Target's filed %v@%s is not valid or cannot set IsValid:%v CanSet:%v", lStruct.Type().Name(), name, lFieldValue.IsValid(), lFieldValue.CanSet())
+			logger.Errf(PKG_NAME+"Target's filed %v@%s is not valid or cannot set IsValid:%v CanSet:%v", lStruct.Type().Name(), name, lFieldValue.IsValid(), lFieldValue.CanSet())
 			continue
 		}
 
@@ -313,7 +329,7 @@ func (self *TRecordSet) AsStruct(target interface{}, classic ...bool) error {
 					lItfVal = utils.Itf2Time(lItfVal)
 				}
 			default:
-				log.Printf(PKG_NAME+"Unsupported struct type %v", lFieldValue.Type().Kind())
+				logger.Errf(PKG_NAME+"Unsupported struct type %v", lFieldValue.Type().Kind())
 				continue
 			}
 		}
