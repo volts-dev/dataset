@@ -3,6 +3,8 @@ package dataset
 import (
 	"sync"
 
+	"github.com/volts-dev/utils"
+
 	"github.com/volts-dev/logger"
 )
 
@@ -203,26 +205,27 @@ func (self *TDataSet) EditRecord(Key string, Record map[string]interface{}) bool
 }
 
 // inverse : the result will select inverse
-func (self *TDataSet) Filter(field string, value interface{},inverse ...bool) *TDataSet {
+func (self *TDataSet) Filter(field string, values []interface{}, inverse ...bool) *TDataSet {
 	if field == "" || value == nil {
 		return nil
 	}
 
-inv:=false
-if len(inverse)>0{
-	inv=inverse[0]
-}
+	inv := false
+	if len(inverse) > 0 {
+		inv = inverse[0]
+	}
 
-	newDataSet:=NewDataSet()
+	newDataSet := NewDataSet()
 	for _, rec = range self.Data {
 		i := rec.FieldIndex(field)
-		if inv&& rec.get(i, false) != value {
+		val := rec.get(i, false)
+		if inv && utils.IdxOfItfs(val, values...) == -1 {
 			newDataSet.AppendRecord(rec)
-		}else if rec.get(i, false) == value {
+		} else if !inv {
 			newDataSet.AppendRecord(rec)
 		}
 	}
-	
+
 	return newDataSet
 }
 
