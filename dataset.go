@@ -202,15 +202,23 @@ func (self *TDataSet) EditRecord(Key string, Record map[string]interface{}) bool
 	return true
 }
 
-func (self *TDataSet) Filter(field string, val interface{}) *TDataSet {
-	if field == "" || val == nil {
+// inverse : the result will select inverse
+func (self *TDataSet) Filter(field string, value interface{},inverse ...bool) *TDataSet {
+	if field == "" || value == nil {
 		return nil
 	}
+
+inv:=false
+if len(inverse)>0{
+	inv=inverse[0]
+}
 
 	newDataSet:=NewDataSet()
 	for _, rec = range self.Data {
 		i := rec.FieldIndex(field)
-		if rec.get(i, false) == val {
+		if inv&& rec.get(i, false) != value {
+			newDataSet.AppendRecord(rec)
+		}else if rec.get(i, false) == value {
 			newDataSet.AppendRecord(rec)
 		}
 	}
