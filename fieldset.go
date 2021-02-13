@@ -66,6 +66,21 @@ func (self *TFieldSet) AsString(value ...string) string {
 	return utils.Itf2Str(self.RecSet.GetByName(self.Name, false))
 }
 
+// TODO
+func (self *TFieldSet) AsDataset(value ...*TDataSet) *TDataSet {
+	if self == nil {
+		logger.Warnf("Can not covert value into string since the field is invalidation!")
+		return ""
+	}
+
+	if len(value) != 0 {
+		self.RecSet.setByName(self, self.Name, value[0], false)
+		return value[0]
+	}
+
+	return nil
+}
+
 func (self *TFieldSet) AsInteger(value ...int64) (result int64) {
 	if self == nil {
 		logger.Warnf("Can not covert value into int64 since the field is invalidation!")

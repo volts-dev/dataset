@@ -202,6 +202,22 @@ func (self *TDataSet) EditRecord(Key string, Record map[string]interface{}) bool
 	return true
 }
 
+func (self *TDataSet) Filter(field string, val interface{}) *TDataSet {
+	if field == "" || val == nil {
+		return nil
+	}
+
+	newDataSet:=NewDataSet()
+	for _, rec = range self.Data {
+		i := rec.FieldIndex(field)
+		if rec.get(i, false) == val {
+			newDataSet.AppendRecord(rec)
+		}
+	}
+	
+	return newDataSet
+}
+
 // query the record by field
 func (self *TDataSet) RecordByField(field string, val interface{}) (rec *TRecordSet) {
 	if field == "" || val == nil {
