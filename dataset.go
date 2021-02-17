@@ -206,7 +206,7 @@ func (self *TDataSet) EditRecord(Key string, Record map[string]interface{}) bool
 
 // inverse : the result will select inverse
 func (self *TDataSet) Filter(field string, values []interface{}, inverse ...bool) *TDataSet {
-	if field == "" || value == nil {
+	if field == "" || values == nil {
 		return nil
 	}
 
