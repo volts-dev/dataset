@@ -3,9 +3,8 @@ package dataset
 import (
 	"sync"
 
-	"github.com/volts-dev/utils"
-
 	"github.com/volts-dev/logger"
+	"github.com/volts-dev/utils"
 )
 
 // TODO　使用全局池回收利用
@@ -216,7 +215,7 @@ func (self *TDataSet) Filter(field string, values []interface{}, inverse ...bool
 	}
 
 	newDataSet := NewDataSet()
-	for _, rec = range self.Data {
+	for _, rec := range self.Data {
 		i := rec.FieldIndex(field)
 		val := rec.get(i, false)
 		if inv && utils.IdxOfItfs(val, values...) == -1 {
