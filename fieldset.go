@@ -70,7 +70,7 @@ func (self *TFieldSet) AsString(value ...string) string {
 func (self *TFieldSet) AsDataset(value ...*TDataSet) *TDataSet {
 	if self == nil {
 		logger.Warnf("Can not covert value into string since the field is invalidation!")
-		return ""
+		return nil
 	}
 
 	if len(value) != 0 {
