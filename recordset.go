@@ -194,8 +194,6 @@ func (self *TRecordSet) FieldByIndex(index int) *TFieldSet {
 		}*/
 		return res
 	}
-
-	return nil
 }
 
 // 获取某个

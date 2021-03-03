@@ -131,7 +131,7 @@ func (self *TDataSet) check_fields(record *TRecordSet) error {
 	for _, field := range record.Fields() {
 		if field != "" {
 			if _, has := self.fields[field]; !has {
-				return logger.Errf("The field name < %s > is not in this dataset! please to set field by < dataset.SetFields >", field)
+				return logger.Errf("The field name < %v > is not in this dataset! please to set field by < dataset.SetFields >", field)
 			}
 		}
 	}
@@ -336,7 +336,7 @@ func (self *TDataSet) Keys(field ...string) (res []interface{}) {
 	}
 
 	res = make([]interface{}, 0)
-	for key, _ := range self.RecordsIndex {
+	for key := range self.RecordsIndex {
 		res = append(res, key)
 	}
 

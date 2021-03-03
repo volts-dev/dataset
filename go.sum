@@ -1,4 +1,8 @@
 github.com/volts-dev/logger v0.0.0-20200505050753-058afe2bec05 h1:TPay9UQpw1HQ6nfRTabh7HzxCbuzL6XGclJevI2F3SA=
 github.com/volts-dev/logger v0.0.0-20200505050753-058afe2bec05/go.mod h1:6inPB8QNCDUKyIw9dB9zBvboUgfHsApbVOEqW3vVTh4=
+github.com/volts-dev/logger v0.0.0-20201021093504-d9dc4be2acb3 h1:wd9r+VSVE2iF6Na91h7QswznedSgn4i+aLpMxnwlQKI=
+github.com/volts-dev/logger v0.0.0-20201021093504-d9dc4be2acb3/go.mod h1:6inPB8QNCDUKyIw9dB9zBvboUgfHsApbVOEqW3vVTh4=
 github.com/volts-dev/utils v0.0.0-20191020084914-72dcd57777e6 h1:Za82v39vciN4dF8vtYk682G/c57M+vTWM+cFRoMOG3c=
 github.com/volts-dev/utils v0.0.0-20191020084914-72dcd57777e6/go.mod h1:0SKzbdZHLvrlZByCsbzLoWh8Zba0XFSynF8daygjvcs=
+github.com/volts-dev/utils v0.0.0-20210131181100-6365ffec7098 h1:sEh6YAWzIaLFvliXqFYrTUx8VEE+uqJH56odVrYvzrU=
+github.com/volts-dev/utils v0.0.0-20210131181100-6365ffec7098/go.mod h1:Gc+qRhI3xm2jw2mAv+X7xI91R9+t+oeTrnYoUes1Aco=
