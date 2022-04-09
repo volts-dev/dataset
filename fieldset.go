@@ -51,6 +51,20 @@ func (self *TFieldSet) AsClassic(value ...interface{}) interface{} {
 	return self.RecSet.GetByName(self.Name, true)
 }
 
+func (self *TFieldSet) AsBytes(value ...[]byte) []byte {
+	if self == nil {
+		logger.Warnf("Can not covert value into string since the field is invalidation!")
+		return nil
+	}
+
+	if len(value) != 0 {
+		self.RecSet.setByName(self, self.Name, value[0], false)
+		return value[0]
+	}
+
+	return []byte(utils.Itf2Str(self.RecSet.GetByName(self.Name, false)))
+}
+
 //
 func (self *TFieldSet) AsString(value ...string) string {
 	if self == nil {

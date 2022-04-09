@@ -278,7 +278,7 @@ func (self *TRecordSet) AsStruct(target interface{}, classic ...bool) error {
 	for idx, name := range self.fields {
 		lFieldValue := lStruct.FieldByName(utils.TitleCasedName(name))
 		if !lFieldValue.IsValid() || !lFieldValue.CanSet() {
-			logger.Errf(PKG_NAME+"Target's filed %v@%s is not valid or cannot set IsValid:%v CanSet:%v", lStruct.Type().Name(), name, lFieldValue.IsValid(), lFieldValue.CanSet())
+			log.Errf("Target's filed %v@%s is not valid or cannot set IsValid:%v CanSet:%v", lStruct.Type().Name(), name, lFieldValue.IsValid(), lFieldValue.CanSet())
 			continue
 		}
 
@@ -327,7 +327,7 @@ func (self *TRecordSet) AsStruct(target interface{}, classic ...bool) error {
 					lItfVal = utils.Itf2Time(lItfVal)
 				}
 			default:
-				logger.Errf(PKG_NAME+"Unsupported struct type %v", lFieldValue.Type().Kind())
+				log.Errf("Unsupported struct type %v", lFieldValue.Type().Kind())
 				continue
 			}
 		}

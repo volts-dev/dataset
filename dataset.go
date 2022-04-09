@@ -8,8 +8,7 @@ import (
 )
 
 // TODO　使用全局池回收利用
-
-const PKG_NAME = "[dataset.go]"
+var log logger.ILogger = logger.NewLogger(logger.WithPrefix("Dataset"))
 
 type (
 	TDataSet struct {
@@ -90,7 +89,7 @@ func (self *TDataSet) Next() {
 
 // is the end of the data list
 func (self *TDataSet) Eof() bool {
-	return self.Position == len(self.Data)
+	return self == nil || self.Position == len(self.Data)
 }
 
 // return the current record
