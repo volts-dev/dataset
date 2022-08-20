@@ -105,6 +105,7 @@ func (self *TRecordSet) set(index int, value interface{}, classic bool) bool {
 	return true
 }
 
+// the record length
 func (self *TRecordSet) Length() int {
 	return self.fieldCount
 }
@@ -121,7 +122,7 @@ func (self *TRecordSet) GetByName(name string, classic bool) interface{} {
 	return nil
 }
 func (self *TRecordSet) IsEmpty() bool {
-	return self.isEmpty
+	return self.fieldCount == 0 || self.isEmpty
 }
 
 // !NOTE! 该函数仅供修改不做添加字段
