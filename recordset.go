@@ -50,13 +50,19 @@ func NewRecordSet(record ...map[string]interface{}) *TRecordSet {
 
 // reset all data to blank
 func (self *TRecordSet) Reset() {
+	if self.nameIndex == nil {
+		self.nameIndex = treehmap.NewWithStringComparator()
+	} else {
+		self.nameIndex.Clear() //
+	}
+
 	self.dataset = nil
 	self.fields = make([]string, 0)
 	self.values = make([]interface{}, 0)
 	self.ClassicValues = make([]interface{}, 0)
-	self.nameIndex.Clear() // = make(map[string]int)
 	self.fieldCount = 0
 	self.isEmpty = true
+
 }
 
 func (self *TRecordSet) FieldIndex(name string) int {
