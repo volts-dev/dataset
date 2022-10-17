@@ -2,9 +2,31 @@ package dataset
 
 import (
 	//"fmt"
+	"fmt"
 	"testing"
+	"time"
 )
 
+type (
+	abc struct {
+		Name string
+		Time time.Time
+		Age  int `field:"age"`
+	}
+)
+
+func TestDatasetToStruct(t *testing.T) {
+	rec := NewRecordSet()
+	// 测试动态添加字段和值
+	rec.FieldByName("name").AsString("abc")
+	rec.FieldByName("age").AsInterface(10)
+	rec.FieldByName("time").AsInterface(time.Now())
+
+	//son := &abc{}
+	var son abc
+	rec.AsStruct(&son)
+	fmt.Println(son)
+}
 func TestDataset_NewRec(t *testing.T) {
 	// 测试动态field添加和验校
 	ds := NewDataSet()

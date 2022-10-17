@@ -3,6 +3,7 @@ package dataset
 import (
 	"sync"
 
+	treehmap "github.com/emirpasic/gods/maps/treemap"
 	"github.com/volts-dev/utils"
 	"github.com/volts-dev/volts/logger"
 )
@@ -12,28 +13,32 @@ var log = logger.New("Dataset")
 
 type (
 	TDataSet struct {
-		Name         string                      // table name
-		Data         []*TRecordSet               // []map[string]interface{}
-		fields       map[string]*TFieldSet       //保存字段
-		KeyField     string                      // 主键字段
-		RecordsIndex map[interface{}]*TRecordSet // 主键引索 // for RecordByKey() Keys()
-		Position     int                         // 游标
-		FieldCount   int                         //字段数
-
+		Name         string        // table name
+		KeyField     string        // 主键字段
+		Data         []*TRecordSet // []map[string]interface{}
+		fields       *treehmap.Map //保存字段
+		RecordsIndex *treehmap.Map // 主键引索 // for RecordByKey() Keys()
+		Position     int           // 游标
+		FieldCount   int           //字段数
 		// classic 字段存储的数据包含有 Struct/Array/map 等
 		classic      bool // 是否存储着经典模式的数据 many2one字段会显示ID和Name
 		positionLock sync.RWMutex
 	}
 )
 
+func AnyComparator(a, b interface{}) int {
+	return 0
+}
+
 func NewDataSet() *TDataSet {
 	return &TDataSet{
 		Position:     0,
 		Data:         make([]*TRecordSet, 0),
-		fields:       make(map[string]*TFieldSet),
-		RecordsIndex: make(map[interface{}]*TRecordSet),
+		fields:       treehmap.NewWithStringComparator(),
+		RecordsIndex: treehmap.NewWith(AnyComparator),
 	}
 }
+
 func (self *TDataSet) Classic(value ...bool) bool {
 	if len(value) > 0 {
 		self.classic = value[0]
@@ -45,8 +50,8 @@ func (self *TDataSet) Classic(value ...bool) bool {
 //TODO  当TDataSet无数据是返回错误
 //TODO HasField()bool
 func (self *TDataSet) FieldByName(field string) (fieldSet *TFieldSet) {
-	var has bool
-	if fieldSet, has = self.fields[field]; has {
+	if fs, has := self.fields.Get(field); has {
+		fieldSet = fs.(*TFieldSet)
 		fieldSet.RecSet = self.Record() // point to the current record self.Data[self.Position]
 		return
 	} else {
@@ -113,23 +118,23 @@ func (self *TDataSet) Record() *TRecordSet {
 //TODO 简化
 func (self *TDataSet) check_fields(record *TRecordSet) error {
 	// #优先记录该数据集的字段
-	if len(self.fields) == 0 && self.Count() < 1 {
+	if self.fields.Size() == 0 && self.Count() < 1 {
 		for _, field := range record.Fields() {
 			if field != "" { // TODO 不应该有空值 需检查
 				fieldSet := newFieldSet(field, nil)
-				self.fields[field] = fieldSet
+				self.fields.Put(field, fieldSet)
 			}
 		}
 
 		//# 添加字段长度
-		self.FieldCount = len(self.fields)
+		self.FieldCount = self.fields.Size()
 		return nil
 	}
 
 	//#检验字段合法
 	for _, field := range record.Fields() {
 		if field != "" {
-			if _, has := self.fields[field]; !has {
+			if _, has := self.fields.Get(field); !has {
 				return logger.Errf("The field name < %v > is not in this dataset! please to set field by < dataset.SetFields >", field)
 			}
 		}
@@ -243,8 +248,8 @@ func (self *TDataSet) RecordByField(field string, val interface{}) (rec *TRecord
 }
 
 // 获取对应KeyFieldd值
-func (self *TDataSet) RecordByKey(Key interface{}, key_field ...string) *TRecordSet {
-	if len(self.RecordsIndex) == 0 {
+func (self *TDataSet) RecordByKey(key interface{}, key_field ...string) *TRecordSet {
+	if self.RecordsIndex.Size() == 0 {
 		if self.KeyField == "" {
 			if len(key_field) == 0 {
 				logger.Warnf(`You should point out the key_field name!`) //#重要提示
@@ -261,14 +266,15 @@ func (self *TDataSet) RecordByKey(Key interface{}, key_field ...string) *TRecord
 	}
 
 	//idx := self.RecordsIndex[Key]
-	return self.RecordsIndex[Key]
+	val, _ := self.RecordsIndex.Get(key)
+	return val.(*TRecordSet)
 }
 
 // 设置固定字段
 func (self *TDataSet) SetFields(fields ...string) {
 	for _, name := range fields {
 		fieldSet := newFieldSet(name, nil)
-		self.fields[name] = fieldSet
+		self.fields.Put(name, fieldSet)
 	}
 }
 
@@ -282,7 +288,10 @@ func (self *TDataSet) SetKeyField(key_field string) bool {
 	self.KeyField = key_field
 
 	// #全新
-	self.RecordsIndex = make(map[interface{}]*TRecordSet)
+	//self.RecordsIndex = make(map[interface{}]*TRecordSet)
+	self.RecordsIndex = treehmap.NewWith(func(a, b interface{}) int {
+		return 0
+	})
 
 	// #赋值
 	for _, rec := range self.Data {
@@ -290,7 +299,7 @@ func (self *TDataSet) SetKeyField(key_field string) bool {
 		lIdSet := rec.FieldByName(key_field)
 		//fmt.Println("idccc", key_field, lIdSet, len(self.RecordsIndex))
 		if lIdSet != nil {
-			self.RecordsIndex[lIdSet.AsInterface()] = rec //保存ID 对应的 Record
+			self.RecordsIndex.Put(lIdSet.AsInterface(), rec) //保存ID 对应的 Record
 		}
 	}
 
@@ -302,12 +311,13 @@ func (self *TDataSet) IsClassic() bool {
 	return self.classic
 }
 
-func (self *TDataSet) Fields() map[string]*TFieldSet {
+//func (self *TDataSet) Fields() map[string]*TFieldSet {
+func (self *TDataSet) Fields() *treehmap.Map {
 	return self.fields
 }
 
 func (self *TDataSet) HasField(name string) bool {
-	_, has := self.fields[name]
+	_, has := self.fields.Get(name)
 	return has
 }
 
@@ -327,17 +337,12 @@ func (self *TDataSet) Keys(field ...string) (res []interface{}) {
 	}
 
 	if self.KeyField == lKeyField {
-		if self.Count() > 0 && len(self.RecordsIndex) == 0 {
+		if self.Count() > 0 && self.RecordsIndex.Size() == 0 {
 			self.SetKeyField(self.KeyField)
 		}
 	} else {
 		self.SetKeyField(lKeyField)
 	}
 
-	res = make([]interface{}, 0)
-	for key := range self.RecordsIndex {
-		res = append(res, key)
-	}
-
-	return
+	return self.RecordsIndex.Keys()
 }

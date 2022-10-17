@@ -2,9 +2,9 @@ package dataset
 
 import (
 	"encoding/json"
-	"reflect"
-	"time"
 
+	treehmap "github.com/emirpasic/gods/maps/treemap"
+	structmap "github.com/mitchellh/mapstructure"
 	"github.com/volts-dev/utils"
 )
 
@@ -12,18 +12,20 @@ type (
 	TRecordSet struct {
 		dataset       *TDataSet
 		fields        []string
-		values        []interface{}  // []string
-		ClassicValues []interface{}  // 存储经典字段值
-		nameIndex     map[string]int // TODO treemap
-		fieldCount    int
-		isEmpty       bool
-		index         int // an index of dataset.data
+		values        []interface{} // []string
+		ClassicValues []interface{} // 存储经典字段值
+		//nameIndex     map[string]int // TODO treemap
+		nameIndex  *treehmap.Map
+		fieldCount int
+		isEmpty    bool
+		index      int // an index of dataset.data
 	}
 )
 
 func NewRecordSet(record ...map[string]interface{}) *TRecordSet {
 	recset := &TRecordSet{
-		index: -1,
+		index:     -1,
+		nameIndex: treehmap.NewWithStringComparator(),
 	}
 	recset.Reset()
 
@@ -34,7 +36,8 @@ func NewRecordSet(record ...map[string]interface{}) *TRecordSet {
 	var idx int
 	for field, val := range record[0] {
 		idx = len(recset.fields)
-		recset.nameIndex[field] = idx // 先于 lRec.fields 添加不需 -1
+		//recset.nameIndex[field] = idx // 先于 lRec.fields 添加不需 -1
+		recset.nameIndex.Put(field, idx)
 		recset.fields = append(recset.fields, field)
 		recset.values = append(recset.values, val)
 
@@ -51,13 +54,14 @@ func (self *TRecordSet) Reset() {
 	self.fields = make([]string, 0)
 	self.values = make([]interface{}, 0)
 	self.ClassicValues = make([]interface{}, 0)
-	self.nameIndex = make(map[string]int)
+	self.nameIndex.Clear() // = make(map[string]int)
 	self.fieldCount = 0
 	self.isEmpty = true
 }
 
 func (self *TRecordSet) FieldIndex(name string) int {
-	return self.nameIndex[name]
+	val, _ := self.nameIndex.Get(name)
+	return val.(int)
 }
 
 // 重置记录字段索引
@@ -67,7 +71,9 @@ func (self *TRecordSet) resetByFields() {
 
 	// rebuild indexs
 	for idx, name := range self.fields {
-		self.nameIndex[name] = idx
+		//self.nameIndex[name] = idx
+		self.nameIndex.Put(name, idx)
+
 	}
 }
 
@@ -114,8 +120,8 @@ func (self *TRecordSet) SetDataset(dataset *TDataSet) {
 }
 
 func (self *TRecordSet) GetByName(name string, classic bool) interface{} {
-	if index, ok := self.nameIndex[name]; ok {
-		return self.get(index, classic)
+	if index, ok := self.nameIndex.Get(name); ok {
+		return self.get(index.(int), classic)
 	}
 
 	return nil
@@ -126,14 +132,14 @@ func (self *TRecordSet) IsEmpty() bool {
 
 // !NOTE! 该函数仅供修改不做添加字段
 func (self *TRecordSet) SetByName(name string, value interface{}, classic bool) bool {
-	if index, ok := self.nameIndex[name]; ok {
-		return self.set(index, value, classic)
+	if index, ok := self.nameIndex.Get(name); ok {
+		return self.set(index.(int), value, classic)
 	}
 
 	return false
 }
 
-//字段被纳入Dataset.Fields
+// 字段被纳入Dataset.Fields
 func (self *TRecordSet) setByName(fs *TFieldSet, name string, value interface{}, classic bool) bool {
 	fs.IsValid = true
 
@@ -143,10 +149,10 @@ func (self *TRecordSet) setByName(fs *TFieldSet, name string, value interface{},
 		return false
 	}
 
-	if index, ok := self.nameIndex[name]; ok {
-		self.set(index, value, classic)
+	if index, ok := self.nameIndex.Get(name); ok {
+		self.set(index.(int), value, classic)
 	} else {
-		self.nameIndex[name] = len(self.values)
+		self.nameIndex.Put(name, len(self.values))
 		self.fields = append(self.fields, name)
 		if classic {
 			self.ClassicValues = append(self.ClassicValues, value)
@@ -175,35 +181,33 @@ func (self *TRecordSet) FieldByIndex(index int) *TFieldSet {
 	field := self.fields[index]
 	if self.dataset != nil {
 		// 检查零界
-		if len(self.dataset.Fields()) != self.fieldCount {
+		if self.dataset.Fields().Size() != self.fieldCount {
 			return nil
 		}
 
-		res := self.dataset.Fields()[field]
-		res.RecSet = self
-		return res
-	} else {
-		// 创建一个空的
-		res := newFieldSet(field, self)
-		res.IsValid = field != ""
-		/*res = &TFieldSet{
-			//dataset: self.dataset,
-			RecSet: self,
-			Name:   field,
-			IsNil:  true,
-		}*/
-		return res
+		if res, has := self.dataset.Fields().Get(field); has {
+			fs := res.(*TFieldSet)
+			fs.RecSet = self
+			return fs
+		}
+
 	}
+
+	// 创建一个空的
+	res := newFieldSet(field, self)
+	res.IsValid = field != ""
+	return res
 }
 
 // 获取某个
 func (self *TRecordSet) FieldByName(name string) *TFieldSet {
 	// 优先验证Dataset
 	if self.dataset != nil {
-		if field, has := self.dataset.Fields()[name]; has {
+		if field, has := self.dataset.Fields().Get(name); has {
 			if field != nil {
-				field.RecSet = self
-				return field //self.values[index]
+				fs := field.(*TFieldSet)
+				fs.RecSet = self
+				return fs
 			}
 		}
 	}
@@ -267,77 +271,81 @@ func (self *TRecordSet) AsStruct(target interface{}, classic ...bool) error {
 	if target == (interface{})(nil) {
 		return nil
 	}
-	// 使用经典数据模式
+
+	decode(self.AsItfMap(), target)
+
+	/*// 使用经典数据模式
 	lClassic := false
 	if len(classic) > 0 {
 		lClassic = classic[0]
 	}
 
-	lStruct := reflect.Indirect(reflect.ValueOf(target))
-	if lStruct.Kind() == reflect.Ptr {
-		lStruct = lStruct.Elem()
-	}
 
-	for idx, name := range self.fields {
-		lFieldValue := lStruct.FieldByName(utils.TitleCasedName(name))
-		if !lFieldValue.IsValid() || !lFieldValue.CanSet() {
-			log.Errf("Target's filed %v@%s is not valid or cannot set IsValid:%v CanSet:%v", lStruct.Type().Name(), name, lFieldValue.IsValid(), lFieldValue.CanSet())
-			continue
+		lStruct := reflect.Indirect(reflect.ValueOf(target))
+		if lStruct.Kind() == reflect.Ptr {
+			lStruct = lStruct.Elem()
 		}
 
-		//lFieldType := lFieldValue.Type()
-		var lItfVal interface{}
-		var lVal reflect.Value
-		if lClassic {
-			//self.dataset.
-			//lVal = reflect.ValueOf(self.ClassicValues[idx])
-			lItfVal = self.ClassicValues[idx]
-		} else {
-			//lVal = reflect.ValueOf(self.values[idx])
-			lItfVal = self.values[idx]
-		}
-
-		// 不设置Nil值
-		if lItfVal == nil {
-			continue
-		}
-
-		// TODO 优化转化
-		//logger.Dbg("AsStruct", name, lFieldValue.Type(), lItfVal, reflect.TypeOf(lItfVal), lVal, self.values[idx])
-		if lFieldValue.Type().Kind() != reflect.TypeOf(lItfVal).Kind() {
-			switch lFieldValue.Type().Kind() {
-			case reflect.Bool:
-				lItfVal = utils.Itf2Bool(lItfVal)
-			case reflect.String:
-				lItfVal = utils.Itf2Str(lItfVal)
-			case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32:
-				lItfVal = utils.Itf2Int(lItfVal)
-			case reflect.Int64:
-				lItfVal = utils.Itf2Int64(lItfVal)
-			case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32:
-				lItfVal = utils.Itf2Int(lItfVal)
-			case reflect.Uint64:
-				lItfVal = utils.Itf2Int64(lItfVal)
-			case reflect.Float32:
-				lItfVal = utils.Itf2Float32(lItfVal)
-			case reflect.Float64:
-				lItfVal = utils.Itf2Float(lItfVal)
-			//case reflect.Array, reflect.Slice:
-			case reflect.Struct:
-				var c_TIME_DEFAULT time.Time
-				TimeType := reflect.TypeOf(c_TIME_DEFAULT)
-				if lFieldValue.Type().ConvertibleTo(TimeType) {
-					lItfVal = utils.Itf2Time(lItfVal)
-				}
-			default:
-				log.Errf("Unsupported struct type %v", lFieldValue.Type().Kind())
+		for idx, name := range self.fields {
+			lFieldValue := lStruct.FieldByName(utils.TitleCasedName(name))
+			if !lFieldValue.IsValid() || !lFieldValue.CanSet() {
+				log.Errf("the field of %v@%s is not valid or cannot set IsValid:%v CanSet:%v", lStruct.Type().Name(), name, lFieldValue.IsValid(), lFieldValue.CanSet())
 				continue
 			}
-		}
 
-		lVal = reflect.ValueOf(lItfVal)
-		lFieldValue.Set(lVal)
-	}
+			//lFieldType := lFieldValue.Type()
+			var lItfVal interface{}
+			var lVal reflect.Value
+			if lClassic {
+				//lVal = reflect.ValueOf(self.ClassicValues[idx])
+				lItfVal = self.ClassicValues[idx]
+			} else {
+				//lVal = reflect.ValueOf(self.values[idx])
+				lItfVal = self.values[idx]
+			}
+
+			// 不设置Nil值
+			if lItfVal == nil {
+				continue
+			}
+
+			// TODO 优化转化
+			//logger.Dbg("AsStruct", name, lFieldValue.Type(), lItfVal, reflect.TypeOf(lItfVal), lVal, self.values[idx])
+			if lFieldValue.Type().Kind() != reflect.TypeOf(lItfVal).Kind() {
+				switch lFieldValue.Type().Kind() {
+				case reflect.Bool:
+					lItfVal = utils.Itf2Bool(lItfVal)
+				case reflect.String:
+					lItfVal = utils.Itf2Str(lItfVal)
+				case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32:
+					lItfVal = utils.Itf2Int(lItfVal)
+				case reflect.Int64:
+					lItfVal = utils.Itf2Int64(lItfVal)
+				case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32:
+					lItfVal = utils.Itf2Int(lItfVal)
+				case reflect.Uint64:
+					lItfVal = utils.Itf2Int64(lItfVal)
+				case reflect.Float32:
+					lItfVal = utils.Itf2Float32(lItfVal)
+				case reflect.Float64:
+					lItfVal = utils.Itf2Float(lItfVal)
+				//case reflect.Array, reflect.Slice:
+				case reflect.Struct:
+					var c_TIME_DEFAULT time.Time
+					TimeType := reflect.TypeOf(c_TIME_DEFAULT)
+					if lFieldValue.Type().ConvertibleTo(TimeType) {
+						lItfVal = utils.Itf2Time(lItfVal)
+					}
+				default:
+					log.Errf("Unsupported struct type %v", lFieldValue.Type().Kind())
+					continue
+				}
+			}
+
+			lVal = reflect.ValueOf(lItfVal)
+			lFieldValue.Set(lVal)
+		}
+	*/
 
 	return nil
 }
@@ -348,4 +356,18 @@ func (self *TRecordSet) MergeToStrMap(target map[string]string) (res map[string]
 	}
 
 	return target
+}
+
+func decode(input any, output any) error {
+	cfg := &structmap.DecoderConfig{
+		Metadata: nil,
+		Result:   output,
+		TagName:  "field",
+	}
+	decoder, err := structmap.NewDecoder(cfg)
+	if err != nil {
+		return err
+	}
+
+	return decoder.Decode(input)
 }
