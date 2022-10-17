@@ -5,7 +5,6 @@ import (
 	"reflect"
 	"time"
 
-	"github.com/volts-dev/logger"
 	"github.com/volts-dev/utils"
 )
 
@@ -140,7 +139,7 @@ func (self *TRecordSet) setByName(fs *TFieldSet, name string, value interface{},
 
 	// 如果是一个单独非dataset下的记录
 	if self.dataset != nil && self.index != -1 && !self.dataset.HasField(name) {
-		logger.Errf("The field name < %s > is not in this dataset! please to set field by < dataset.SetFields >", name)
+		log.Errf("The field name < %s > is not in this dataset! please to set field by < dataset.SetFields >", name)
 		return false
 	}
 
@@ -265,6 +264,9 @@ func (self *TRecordSet) AsCsv() (res string) {
 // mapping to a struct
 // the terget must be a pointer value
 func (self *TRecordSet) AsStruct(target interface{}, classic ...bool) error {
+	if target == (interface{})(nil) {
+		return nil
+	}
 	// 使用经典数据模式
 	lClassic := false
 	if len(classic) > 0 {

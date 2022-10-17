@@ -3,12 +3,12 @@ package dataset
 import (
 	"sync"
 
-	"github.com/volts-dev/logger"
 	"github.com/volts-dev/utils"
+	"github.com/volts-dev/volts/logger"
 )
 
 // TODO　使用全局池回收利用
-var log logger.ILogger = logger.NewLogger(logger.WithPrefix("Dataset"))
+var log = logger.New("Dataset")
 
 type (
 	TDataSet struct {
