@@ -31,9 +31,8 @@ func AnyComparator(a, b interface{}) int {
 	return 0
 }
 
-func NewDataSet(opts ...Option) (*TDataSet, error) {
+func NewDataSet(opts ...Option) *TDataSet {
 	dataset := &TDataSet{
-		config:       cfg,
 		Position:     0,
 		Data:         make([]*TRecordSet, 0),
 		fields:       treehmap.NewWithStringComparator(),

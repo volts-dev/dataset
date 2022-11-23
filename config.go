@@ -1,14 +1,14 @@
 package dataset
 
 type (
-	Option func(*Config) error
+	Option func(*Config)
 	Config struct {
 		dataset     *TDataSet
 		checkFields bool
 	}
 )
 
-func newConfig(dataset *TDataSet, opts ...Option) (*Config, error) {
+func newConfig(dataset *TDataSet, opts ...Option) *Config {
 	cfg := &Config{
 		dataset:     dataset,
 		checkFields: false,
@@ -27,7 +27,7 @@ func (self *Config) Init(opts ...Option) {
 }
 
 func WithData(data []map[string]any) Option {
-	return func(cfg *Config) error {
+	return func(cfg *Config) {
 		for _, m := range data {
 			cfg.dataset.NewRecord(m)
 		}
@@ -35,7 +35,7 @@ func WithData(data []map[string]any) Option {
 }
 
 func WithFieldsChecker() Option {
-	return func(cfg *Config) error {
+	return func(cfg *Config) {
 		cfg.checkFields = true
 	}
 }
