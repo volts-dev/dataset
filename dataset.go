@@ -13,16 +13,17 @@ var log = logger.New("Dataset")
 
 type (
 	TDataSet struct {
-		Name         string        // table name
+		sync.RWMutex
+		config       *Config
+		Name         string        // 数据模型名称 默认为空白 特殊情况下为Model的名称
 		KeyField     string        // 主键字段
-		Data         []*TRecordSet // []map[string]interface{}
-		fields       *treehmap.Map //保存字段
-		RecordsIndex *treehmap.Map // 主键引索 // for RecordByKey() Keys()
+		Data         []*TRecordSet //
+		fields       *treehmap.Map // 字段引索列表
+		RecordsIndex *treehmap.Map // 主键引索列表 // for RecordByKey() Keys()
 		Position     int           // 游标
-		FieldCount   int           //字段数
+		FieldCount   int           // 字段数
 		// classic 字段存储的数据包含有 Struct/Array/map 等
-		classic      bool // 是否存储着经典模式的数据 many2one字段会显示ID和Name
-		positionLock sync.RWMutex
+		classic bool // 是否存储着经典模式的数据 many2one字段会显示ID和Name
 	}
 )
 
@@ -30,13 +31,16 @@ func AnyComparator(a, b interface{}) int {
 	return 0
 }
 
-func NewDataSet() *TDataSet {
-	return &TDataSet{
+func NewDataSet(opts ...Option) (*TDataSet, error) {
+	dataset := &TDataSet{
+		config:       cfg,
 		Position:     0,
 		Data:         make([]*TRecordSet, 0),
 		fields:       treehmap.NewWithStringComparator(),
 		RecordsIndex: treehmap.NewWith(AnyComparator),
 	}
+	newConfig(dataset, opts...)
+	return dataset
 }
 
 func (self *TDataSet) Classic(value ...bool) bool {
@@ -47,8 +51,8 @@ func (self *TDataSet) Classic(value ...bool) bool {
 	return self.classic
 }
 
-//TODO  当TDataSet无数据是返回错误
-//TODO HasField()bool
+// TODO  当TDataSet无数据是返回错误
+// TODO HasField()bool
 func (self *TDataSet) FieldByName(field string) (fieldSet *TFieldSet) {
 	if fs, has := self.fields.Get(field); has {
 		fieldSet = fs.(*TFieldSet)
@@ -62,7 +66,6 @@ func (self *TDataSet) FieldByName(field string) (fieldSet *TFieldSet) {
 	return
 }
 
-//
 func (self *TDataSet) IsEmpty() bool {
 	return len(self.Data) == 0
 }
@@ -80,16 +83,16 @@ func (self *TDataSet) Clear() {
 
 // set the Pos on first
 func (self *TDataSet) First() {
-	self.positionLock.Lock()
+	self.Lock()
 	self.Position = 0
-	self.positionLock.Unlock()
+	self.Unlock()
 }
 
 // goto next record
 func (self *TDataSet) Next() {
-	self.positionLock.Lock()
+	self.Lock()
 	self.Position++
-	self.positionLock.Unlock()
+	self.Unlock()
 }
 
 // is the end of the data list
@@ -115,8 +118,8 @@ func (self *TDataSet) Record() *TRecordSet {
 }
 
 // #检验字段合法
-//TODO 简化
-func (self *TDataSet) check_fields(record *TRecordSet) error {
+// TODO 简化
+func (self *TDataSet) validateFields(record *TRecordSet) {
 	// #优先记录该数据集的字段
 	if self.fields.Size() == 0 && self.Count() < 1 {
 		for _, field := range record.Fields() {
@@ -128,22 +131,21 @@ func (self *TDataSet) check_fields(record *TRecordSet) error {
 
 		//# 添加字段长度
 		self.FieldCount = self.fields.Size()
-		return nil
 	}
 
 	//#检验字段合法
-	for _, field := range record.Fields() {
-		if field != "" {
-			if _, has := self.fields.Get(field); !has {
-				return logger.Errf("The field name < %v > is not in this dataset! please to set field by < dataset.SetFields >", field)
+	if self.config.checkFields {
+		for _, field := range record.Fields() {
+			if field != "" {
+				if _, has := self.fields.Get(field); !has {
+					logger.Errf("The field name < %v > is not in this dataset! please to set field by < dataset.SetFields >", field)
+				}
 			}
 		}
 	}
-
-	return nil
 }
 
-// NOTE 第一条记录决定空dataset的fields
+// NOTE:第一条记录决定空dataset的fields 默认情况下会自动舍弃多余字段的数据
 // appending a record.Its fields will be come the standard format when it is the first record of this set
 func (self *TDataSet) AppendRecord(records ...*TRecordSet) error {
 	for _, rec := range records {
@@ -151,29 +153,19 @@ func (self *TDataSet) AppendRecord(records ...*TRecordSet) error {
 			continue
 		}
 
-		//if fields == nil {
-		//	fields = rec.NameIndex
-		//}
-
-		if err := self.check_fields(rec); err != nil {
-			logger.Err(err)
-
-		} else { //#TODO 考虑是否为复制
-			rec.dataset = self //# 将其归为
-			self.Data = append(self.Data, rec)
-			self.Position = len(self.Data) - 1
-		}
+		self.validateFields(rec)
+		//#TODO 考虑是否为复制
+		rec.dataset = self //# 将其归为
+		self.Data = append(self.Data, rec)
+		self.Position = len(self.Data) - 1
 	}
 
 	return nil
 }
 
-//push row to dataset
-func (self *TDataSet) NewRecord(record map[string]interface{}) bool {
-	rec := NewRecordSet(record)
-	self.AppendRecord(rec)
-
-	return true
+// push row to dataset
+func (self *TDataSet) NewRecord(record map[string]interface{}) error {
+	return self.AppendRecord(NewRecordSet(record))
 }
 
 func (self *TDataSet) Delete(idx ...int) bool {
@@ -311,7 +303,7 @@ func (self *TDataSet) IsClassic() bool {
 	return self.classic
 }
 
-//func (self *TDataSet) Fields() map[string]*TFieldSet {
+// func (self *TDataSet) Fields() map[string]*TFieldSet {
 func (self *TDataSet) Fields() *treehmap.Map {
 	return self.fields
 }
