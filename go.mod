@@ -1,10 +1,10 @@
 module github.com/volts-dev/dataset
 
-go 1.18
+go 1.20
 
 require (
 	github.com/mitchellh/mapstructure v1.5.0
-	github.com/volts-dev/utils v0.0.0-20221011112847-200c138184c5
+	github.com/volts-dev/utils v0.0.0-20230315102412-df9675e942c9
 	github.com/volts-dev/volts v0.0.0-20221015141342-b8e05c3d1016
 )
 

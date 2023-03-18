@@ -27,16 +27,20 @@ type (
 	}
 )
 
-func AnyComparator(a, b interface{}) int {
-	return 0
+func newRecordsIndex() *treehmap.Map {
+	return treehmap.NewWith(func(a, b interface{}) int {
+		if a != b {
+			return 1
+		}
+		return 0
+	})
 }
 
 func NewDataSet(opts ...Option) *TDataSet {
 	dataset := &TDataSet{
-		Position:     0,
-		Data:         make([]*TRecordSet, 0),
-		fields:       treehmap.NewWithStringComparator(),
-		RecordsIndex: treehmap.NewWith(AnyComparator),
+		Position: 0,
+		Data:     make([]*TRecordSet, 0),
+		fields:   treehmap.NewWithStringComparator(),
 	}
 	newConfig(dataset, opts...)
 	return dataset
@@ -77,6 +81,9 @@ func (self *TDataSet) Count() int {
 // clear all records
 func (self *TDataSet) Clear() {
 	self.Data = nil
+	if self.RecordsIndex != nil {
+		self.RecordsIndex.Clear()
+	}
 	self.First()
 }
 
@@ -157,6 +164,11 @@ func (self *TDataSet) AppendRecord(records ...*TRecordSet) error {
 		rec.dataset = self //# 将其归为
 		self.Data = append(self.Data, rec)
 		self.Position = len(self.Data) - 1
+	}
+
+	// 清除索引
+	if self.RecordsIndex != nil && self.RecordsIndex.Size() > 0 {
+		self.RecordsIndex.Clear()
 	}
 
 	return nil
@@ -240,25 +252,30 @@ func (self *TDataSet) RecordByField(field string, val interface{}) (rec *TRecord
 
 // 获取对应KeyFieldd值
 func (self *TDataSet) RecordByKey(key interface{}, key_field ...string) *TRecordSet {
-	if self.RecordsIndex.Size() == 0 {
+	if self.RecordsIndex == nil || self.RecordsIndex.Size() != len(self.Data) {
 		if self.KeyField == "" {
 			if len(key_field) == 0 {
 				logger.Warnf(`You should point out the key_field name!`) //#重要提示
+				return nil
 			} else {
 				if !self.SetKeyField(key_field[0]) {
 					logger.Warnf(`Set key_field fail when call RecordByKey(key_field:%v)!`, key_field[0])
+					return nil
 				}
 			}
 		} else {
 			if !self.SetKeyField(self.KeyField) {
 				logger.Warnf(`Set key_field fail when call RecordByKey(self.KeyField:%v)!`, self.KeyField)
+				return nil
 			}
 		}
 	}
 
-	//idx := self.RecordsIndex[Key]
-	val, _ := self.RecordsIndex.Get(key)
-	return val.(*TRecordSet)
+	if val, has := self.RecordsIndex.Get(key); has {
+		return val.(*TRecordSet)
+	}
+
+	return nil
 }
 
 // 设置固定字段
@@ -279,16 +296,15 @@ func (self *TDataSet) SetKeyField(key_field string) bool {
 	self.KeyField = key_field
 
 	// #全新
-	//self.RecordsIndex = make(map[interface{}]*TRecordSet)
-	self.RecordsIndex = treehmap.NewWith(func(a, b interface{}) int {
-		return 0
-	})
+	if self.RecordsIndex == nil {
+		self.RecordsIndex = newRecordsIndex()
+	} else {
+		self.RecordsIndex.Clear()
+	}
 
 	// #赋值
 	for _, rec := range self.Data {
-		//fmt.Println("idccc", key_field, rec, len(self.RecordsIndex))
 		lIdSet := rec.FieldByName(key_field)
-		//fmt.Println("idccc", key_field, lIdSet, len(self.RecordsIndex))
 		if lIdSet != nil {
 			self.RecordsIndex.Put(lIdSet.AsInterface(), rec) //保存ID 对应的 Record
 		}
@@ -314,25 +330,24 @@ func (self *TDataSet) HasField(name string) bool {
 
 // return all the keys value
 // 返回所有记录的主键值
-func (self *TDataSet) Keys(field ...string) (res []interface{}) {
-	// #默认
-	lKeyField := "id"
-
-	if self.KeyField != "" {
-		lKeyField = self.KeyField
-	}
-
+func (self *TDataSet) Keys(fieldName ...string) (res []interface{}) {
+	var keyField string
 	// #新的Key
-	if len(field) > 0 {
-		lKeyField = field[0]
+	if len(fieldName) > 0 {
+		keyField = fieldName[0]
+	} else {
+		keyField = "id" // #默认
+		if self.KeyField != "" {
+			keyField = self.KeyField
+		}
 	}
 
-	if self.KeyField == lKeyField {
+	if self.KeyField == keyField {
 		if self.Count() > 0 && self.RecordsIndex.Size() == 0 {
 			self.SetKeyField(self.KeyField)
 		}
 	} else {
-		self.SetKeyField(lKeyField)
+		self.SetKeyField(keyField)
 	}
 
 	return self.RecordsIndex.Keys()

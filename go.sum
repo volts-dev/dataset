@@ -171,6 +171,8 @@ github.com/subosito/gotenv v1.4.1 h1:jyEFiXpy21Wm81FBN71l9VoMMV8H8jG+qIK3GCpY6Qs
 github.com/subosito/gotenv v1.4.1/go.mod h1:ayKnFf/c6rvx/2iiLrJUk1e6plDbT3edrFNGqEflhK0=
 github.com/volts-dev/utils v0.0.0-20221011112847-200c138184c5 h1:9DU4l0PTKv9oShJRN2eCCxxsdgILzK1vfmc5NQ1TfS8=
 github.com/volts-dev/utils v0.0.0-20221011112847-200c138184c5/go.mod h1:Gc+qRhI3xm2jw2mAv+X7xI91R9+t+oeTrnYoUes1Aco=
+github.com/volts-dev/utils v0.0.0-20230315102412-df9675e942c9 h1:vRxDpkCaineTQDfCyW0t6LIOre7JOg405pOCQJp54Wc=
+github.com/volts-dev/utils v0.0.0-20230315102412-df9675e942c9/go.mod h1:+kUf8mA9snzPnc5K3L6UGXBFtM8IwFTFnBryr8wmbT4=
 github.com/volts-dev/volts v0.0.0-20221015141342-b8e05c3d1016 h1:HofBM8/J7O5m19NUr+XIKEankOYU8GILrKs6lJIGyCQ=
 github.com/volts-dev/volts v0.0.0-20221015141342-b8e05c3d1016/go.mod h1:zW1gdQPr2Pa8LNVB6l8H4Y4OyG4ciJRKB6bHCbUtubo=
 github.com/yuin/goldmark v1.1.25/go.mod h1:3hX8gzYuyVAZsxl0MRgGTJEmQBFcNTphYh9decYSb74=
