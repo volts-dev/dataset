@@ -54,6 +54,15 @@ func (self *TDataSet) Classic(value ...bool) bool {
 	return self.classic
 }
 
+func (self *TDataSet) Range(fn func(pos int, record *TRecordSet) error) error {
+	for i, rec := range self.Data {
+		if err := fn(i, rec); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // TODO  当TDataSet无数据是返回错误
 // TODO HasField()bool
 func (self *TDataSet) FieldByName(field string) (fieldSet *TFieldSet) {
