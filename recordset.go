@@ -125,9 +125,13 @@ func (self *TRecordSet) SetDataset(dataset *TDataSet) {
 	self.dataset = dataset
 }
 
-func (self *TRecordSet) GetByName(name string, classic bool) interface{} {
+func (self *TRecordSet) GetByName(name string, classic ...bool) interface{} {
 	if index, ok := self.nameIndex.Get(name); ok {
-		return self.get(index.(int), classic)
+		var isclassic bool
+		if len(classic) > 1 {
+			isclassic = classic[0]
+		}
+		return self.get(index.(int), isclassic)
 	}
 
 	return nil
@@ -137,9 +141,13 @@ func (self *TRecordSet) IsEmpty() bool {
 }
 
 // !NOTE! 该函数仅供修改不做添加字段
-func (self *TRecordSet) SetByName(name string, value interface{}, classic bool) bool {
+func (self *TRecordSet) SetByName(name string, value interface{}, classic ...bool) bool {
 	if index, ok := self.nameIndex.Get(name); ok {
-		return self.set(index.(int), value, classic)
+		var isclassic bool
+		if len(classic) > 1 {
+			isclassic = classic[0]
+		}
+		return self.set(index.(int), value, isclassic)
 	}
 
 	return false

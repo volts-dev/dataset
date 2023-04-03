@@ -343,7 +343,7 @@ func (self *TDataSet) Keys(fieldName ...string) (res []interface{}) {
 	}
 
 	if self.KeyField == keyField {
-		if self.Count() > 0 && self.RecordsIndex.Size() == 0 {
+		if self.Count() > 0 && self.RecordsIndex == nil || self.RecordsIndex.Size() == 0 {
 			self.SetKeyField(self.KeyField)
 		}
 	} else {
