@@ -219,6 +219,28 @@ func (self *TDataSet) EditRecord(Key string, Record map[string]interface{}) bool
 	return true
 }
 
+func (self *TDataSet) GroupBy(field string) map[any]*TDataSet {
+	if field == "" || !self.HasField(field) {
+		return nil
+	}
+
+	// TODO 优化FieldIndex获取减少重复使用
+	groups := make(map[any]*TDataSet)
+	for _, rec := range self.Data {
+		i := rec.FieldIndex(field)
+		if v := rec.get(i, false); v != nil {
+			grp := groups[v]
+			if grp == nil {
+				grp = NewDataSet()
+				groups[v] = grp
+			}
+
+			grp.AppendRecord(rec)
+		}
+	}
+	return groups
+}
+
 // inverse : the result will select inverse
 func (self *TDataSet) Filter(field string, values []interface{}, inverse ...bool) *TDataSet {
 	if field == "" || values == nil {

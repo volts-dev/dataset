@@ -26,9 +26,9 @@ func (self *Config) Init(opts ...Option) {
 	}
 }
 
-func WithData(data []map[string]any) Option {
+func WithData(datas ...map[string]any) Option {
 	return func(cfg *Config) {
-		for _, m := range data {
+		for _, m := range datas {
 			cfg.dataset.NewRecord(m)
 		}
 	}

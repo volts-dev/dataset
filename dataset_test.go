@@ -15,6 +15,27 @@ type (
 	}
 )
 
+func TestDatasetGroupby(t *testing.T) {
+	ds := NewDataSet(
+		WithData(
+			map[string]any{
+				"id":   1,
+				"name": "dataset1",
+			},
+			map[string]any{
+				"id":   2,
+				"name": "dataset2",
+			},
+			map[string]any{
+				"id":   3,
+				"name": "dataset3",
+			}),
+	)
+
+	result := ds.GroupBy("name")
+	fmt.Println(result)
+}
+
 func TestDatasetToStruct(t *testing.T) {
 	rec := NewRecordSet()
 	// 测试动态添加字段和值
@@ -27,6 +48,7 @@ func TestDatasetToStruct(t *testing.T) {
 	rec.AsStruct(&son)
 	fmt.Println(son)
 }
+
 func TestDataset_NewRec(t *testing.T) {
 	// 测试动态field添加和验校
 	ds := NewDataSet()
