@@ -54,7 +54,12 @@ func (self *TDataSet) Classic(value ...bool) bool {
 	return self.classic
 }
 
+// TODO 薛瑶中断机制
 func (self *TDataSet) Range(fn func(pos int, record *TRecordSet) error) error {
+	if self == nil {
+		return nil
+	}
+
 	for i, rec := range self.Data {
 		if err := fn(i, rec); err != nil {
 			return err
@@ -84,6 +89,9 @@ func (self *TDataSet) IsEmpty() bool {
 
 // return the number of data
 func (self *TDataSet) Count() int {
+	if self == nil {
+		return 0
+	}
 	return len(self.Data)
 }
 
@@ -318,13 +326,13 @@ func (self *TDataSet) SetFields(fields ...string) {
 }
 
 // set the field as key
-func (self *TDataSet) SetKeyField(key_field string) bool {
+func (self *TDataSet) SetKeyField(keyField string) bool {
 	// # 非空或非Count查询时提供多行索引
-	if self.Count() == 0 || (self.FieldByName(key_field) == nil && len(self.Record().Fields()) == 1 && self.Record().FieldByName("count") != nil) {
+	if self.Count() == 0 || (self.Record().GetByName(keyField) == nil && len(self.Record().Fields()) == 1 && self.Record().FieldByName("count") != nil) {
 		return false
 	}
 
-	self.KeyField = key_field
+	self.KeyField = keyField
 
 	// #全新
 	if self.RecordsIndex == nil {
@@ -335,9 +343,9 @@ func (self *TDataSet) SetKeyField(key_field string) bool {
 
 	// #赋值
 	for _, rec := range self.Data {
-		lIdSet := rec.FieldByName(key_field)
-		if lIdSet != nil {
-			self.RecordsIndex.Put(lIdSet.AsInterface(), rec) //保存ID 对应的 Record
+		value := rec.GetByName(keyField)
+		if value != nil {
+			self.RecordsIndex.Put(value, rec) //保存ID 对应的 Record
 		}
 	}
 
@@ -362,6 +370,10 @@ func (self *TDataSet) HasField(name string) bool {
 // return all the keys value
 // 返回所有记录的主键值
 func (self *TDataSet) Keys(fieldName ...string) (res []interface{}) {
+	if self.Count() == 0 {
+		return nil
+	}
+
 	var keyField string
 	// #新的Key
 	if len(fieldName) > 0 {
@@ -374,7 +386,7 @@ func (self *TDataSet) Keys(fieldName ...string) (res []interface{}) {
 	}
 
 	if self.KeyField == keyField {
-		if self.Count() > 0 && self.RecordsIndex == nil || self.RecordsIndex.Size() == 0 {
+		if self.Count() > 0 && (self.RecordsIndex == nil || self.RecordsIndex.Size() == 0) {
 			self.SetKeyField(self.KeyField)
 		}
 	} else {
