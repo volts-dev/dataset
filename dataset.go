@@ -332,8 +332,6 @@ func (self *TDataSet) SetKeyField(keyField string) bool {
 		return false
 	}
 
-	self.KeyField = keyField
-
 	// #全新
 	if self.RecordsIndex == nil {
 		self.RecordsIndex = newRecordsIndex()
@@ -341,10 +339,12 @@ func (self *TDataSet) SetKeyField(keyField string) bool {
 		self.RecordsIndex.Clear()
 	}
 
+	self.KeyField = keyField
+
 	// #赋值
 	for _, rec := range self.Data {
 		value := rec.GetByName(keyField)
-		if value != nil {
+		if utils.IsBlank(value) {
 			self.RecordsIndex.Put(value, rec) //保存ID 对应的 Record
 		}
 	}
