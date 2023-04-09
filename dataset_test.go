@@ -15,23 +15,35 @@ type (
 	}
 )
 
-func TestDatasetGroupby(t *testing.T) {
-	ds := NewDataSet(
-		WithData(
-			map[string]any{
-				"id":   1,
-				"name": "dataset1",
-			},
-			map[string]any{
-				"id":   2,
-				"name": "dataset2",
-			},
-			map[string]any{
-				"id":   3,
-				"name": "dataset3",
-			}),
-	)
+var ds = NewDataSet(
+	WithData(
+		map[string]any{
+			"id":   nil,
+			"name": "dataset1",
+		},
+		map[string]any{
+			"id":   0,
+			"name": "dataset1",
+		},
+		map[string]any{
+			"id":   1,
+			"name": "dataset1",
+		},
+		map[string]any{
+			"id":   2,
+			"name": "dataset2",
+		},
+		map[string]any{
+			"id":   3,
+			"name": "dataset3",
+		}),
+)
 
+func TestDatasetKeys(t *testing.T) {
+	fmt.Println(ds.Keys("id")...)
+}
+
+func TestDatasetGroupby(t *testing.T) {
 	result := ds.GroupBy("name")
 	fmt.Println(result)
 }

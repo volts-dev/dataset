@@ -344,7 +344,7 @@ func (self *TDataSet) SetKeyField(keyField string) bool {
 	// #赋值
 	for _, rec := range self.Data {
 		value := rec.GetByName(keyField)
-		if utils.IsBlank(value) {
+		if value != nil && !utils.IsBlank(value) {
 			self.RecordsIndex.Put(value, rec) //保存ID 对应的 Record
 		}
 	}
@@ -368,7 +368,7 @@ func (self *TDataSet) HasField(name string) bool {
 }
 
 // return all the keys value
-// 返回所有记录的主键值
+// 返回所有记录的非空非Nil主键值
 func (self *TDataSet) Keys(fieldName ...string) (res []interface{}) {
 	if self.Count() == 0 {
 		return nil
