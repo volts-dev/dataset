@@ -48,12 +48,43 @@ func TestDatasetGroupby(t *testing.T) {
 	fmt.Println(result)
 }
 
+func TestDatasetAppendRecord(t *testing.T) {
+	ds := NewDataSet()
+
+	rec := NewRecordSet()
+	// 测试动态添加字段和值
+	rec.SetByField("name", "abc")
+	rec.SetByField("age", 10)
+	rec.SetByField("time", time.Now())
+	err := ds.AppendRecord(rec)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	rec2 := NewRecordSet()
+	// 测试动态添加字段和值
+	rec2.SetByField("name2", "abc2")
+	rec2.SetByField("age2", 12)
+	rec2.SetByField("time2", time.Now())
+	err = ds.AppendRecord(rec2)
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Println(ds.Data[0].GetByField("name"))
+	fmt.Println(ds.Data[1].GetByField("name"))
+	fmt.Println(ds.Data[1].GetByField("name2"))
+
+	if ds.Count() != 2 {
+		log.Fatalf("AppendRecord fail")
+	}
+}
+
 func TestDatasetToStruct(t *testing.T) {
 	rec := NewRecordSet()
 	// 测试动态添加字段和值
-	rec.FieldByName("name").AsString("abc")
-	rec.FieldByName("age").AsInterface(10)
-	rec.FieldByName("time").AsInterface(time.Now())
+	rec.SetByField("name", "abc")
+	rec.SetByField("age", 10)
+	rec.SetByField("time", time.Now())
 
 	//son := &abc{}
 	var son abc
@@ -66,22 +97,22 @@ func TestDataset_NewRec(t *testing.T) {
 	ds := NewDataSet()
 	ds.SetFields("name", "key")
 	ds.Next()
-	ds.FieldByName("name").AsInterface("dataset")
+	ds.Record().SetByField("name", "dataset")
 	t.Log(ds.Count(), ds.Position, ds.Record().AsItfMap())
 	ds.Next()
-	ds.FieldByName("key").AsInterface("dataset")
+	ds.Record().SetByField("key", "dataset")
 	t.Log(ds.Count(), ds.Position, ds.Record().AsItfMap())
 
 	rec := NewRecordSet()
 	// 测试动态添加字段和值
-	rec.FieldByName("name").AsString("AAAA")
-	rec.FieldByName("name2").AsInterface(map[string]string{"fasd": "asdf"})
+	rec.SetByField("name", "AAAA")
+	rec.SetByField("name2", map[string]string{"fasd": "asdf"})
 
 	ds.AppendRecord(rec)
 	t.Log("jjjj")
 	ds.classic = false
-	ds.FieldByName("name3").AsString("CCCC")
-	ds.FieldByName("sdfsdfd").AsString("CCCC")
+	ds.Record().SetByField("name3", "CCCC")
+	ds.Record().SetByField("sdfsdfd", "CCCC")
 
 	t.Log(rec.AsItfMap(), ds.Count(), ds.Record().AsItfMap())
 	t.Log(ds.FieldByName("name").AsString())

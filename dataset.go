@@ -17,8 +17,9 @@ type (
 		config       *Config
 		Name         string        // 数据模型名称 默认为空白 特殊情况下为Model的名称
 		KeyField     string        // 主键字段
+		fields       []string      // 字段引索列表
 		Data         []*TRecordSet //
-		fields       *treehmap.Map // 字段引索列表
+		fieldsIndex  *treehmap.Map
 		RecordsIndex *treehmap.Map // 主键引索列表 // for RecordByKey() Keys()
 		Position     int           // 游标
 		FieldCount   int           // 字段数
@@ -38,9 +39,9 @@ func newRecordsIndex() *treehmap.Map {
 
 func NewDataSet(opts ...Option) *TDataSet {
 	dataset := &TDataSet{
-		Position: 0,
-		Data:     make([]*TRecordSet, 0),
-		fields:   treehmap.NewWithStringComparator(),
+		Position:    0,
+		Data:        make([]*TRecordSet, 0),
+		fieldsIndex: treehmap.NewWithStringComparator(),
 	}
 	newConfig(dataset, opts...)
 	return dataset
@@ -71,16 +72,10 @@ func (self *TDataSet) Range(fn func(pos int, record *TRecordSet) error) error {
 // TODO  当TDataSet无数据是返回错误
 // TODO HasField()bool
 func (self *TDataSet) FieldByName(field string) (fieldSet *TFieldSet) {
-	if fs, has := self.fields.Get(field); has {
-		fieldSet = fs.(*TFieldSet)
-		fieldSet.RecSet = self.Record() // point to the current record self.Data[self.Position]
-		return
-	} else {
-		// 创建一个空的
-		fieldSet = newFieldSet(field, self.Record())
+	if idx, has := self.fieldsIndex.Get(field); has {
+		return newFieldSet(idx.(int), field, self.Record())
 	}
-
-	return
+	return newFieldSet(-1, field, self.Record())
 }
 
 func (self *TDataSet) IsEmpty() bool {
@@ -132,8 +127,8 @@ func (self *TDataSet) Record() *TRecordSet {
 		rec.dataset = self
 		return rec
 	} else {
-		if rs := self.Data[self.Position]; rs != nil {
-			return rs
+		if rec := self.Data[self.Position]; rec != nil {
+			return rec
 		}
 	}
 
@@ -144,23 +139,23 @@ func (self *TDataSet) Record() *TRecordSet {
 // TODO 简化
 func (self *TDataSet) validateFields(record *TRecordSet) {
 	// #优先记录该数据集的字段
-	if self.fields.Size() == 0 && self.Count() < 1 {
-		for _, field := range record.Fields() {
+	if self.Count() == 0 && self.fieldsIndex.Size() == 0 {
+		self.fields = record.Fields()
+		for idx, field := range self.fields {
 			if field != "" { // TODO 不应该有空值 需检查
-				fieldSet := newFieldSet(field, nil)
-				self.fields.Put(field, fieldSet)
+				self.fieldsIndex.Put(field, idx)
 			}
 		}
 
 		//# 添加字段长度
-		self.FieldCount = self.fields.Size()
+		self.FieldCount = self.fieldsIndex.Size()
 	}
 
 	//#检验字段合法
 	if self.config.checkFields {
 		for _, field := range record.Fields() {
 			if field != "" {
-				if _, has := self.fields.Get(field); !has {
+				if _, has := self.fieldsIndex.Get(field); !has {
 					logger.Errf("The field name < %v > is not in this dataset! please to set field by < dataset.SetFields >", field)
 				}
 			}
@@ -177,6 +172,7 @@ func (self *TDataSet) AppendRecord(records ...*TRecordSet) error {
 		}
 
 		self.validateFields(rec)
+
 		//#TODO 考虑是否为复制
 		rec.dataset = self //# 将其归为
 		self.Data = append(self.Data, rec)
@@ -235,7 +231,7 @@ func (self *TDataSet) GroupBy(field string) map[any]*TDataSet {
 	// TODO 优化FieldIndex获取减少重复使用
 	groups := make(map[any]*TDataSet)
 	for _, rec := range self.Data {
-		i := rec.FieldIndex(field)
+		i := rec.GetFieldIndex(field)
 		if v := rec.get(i, false); v != nil {
 			grp := groups[v]
 			if grp == nil {
@@ -262,7 +258,7 @@ func (self *TDataSet) Filter(field string, values []interface{}, inverse ...bool
 
 	newDataSet := NewDataSet()
 	for _, rec := range self.Data {
-		i := rec.FieldIndex(field)
+		i := rec.GetFieldIndex(field)
 		val := rec.get(i, false)
 		if inv && utils.IdxOfItfs(val, values...) == -1 {
 			newDataSet.AppendRecord(rec)
@@ -281,7 +277,7 @@ func (self *TDataSet) RecordByField(field string, val interface{}) (rec *TRecord
 	}
 
 	for _, rec = range self.Data {
-		i := rec.FieldIndex(field)
+		i := rec.GetFieldIndex(field)
 		if rec.get(i, false) == val {
 			return rec
 		}
@@ -319,16 +315,17 @@ func (self *TDataSet) RecordByKey(key interface{}, key_field ...string) *TRecord
 
 // 设置固定字段
 func (self *TDataSet) SetFields(fields ...string) {
-	for _, name := range fields {
-		fieldSet := newFieldSet(name, nil)
-		self.fields.Put(name, fieldSet)
+	self.fieldsIndex.Clear()
+	self.fields = fields
+	for idx, name := range self.fields {
+		self.fieldsIndex.Put(name, idx)
 	}
 }
 
 // set the field as key
 func (self *TDataSet) SetKeyField(keyField string) bool {
 	// # 非空或非Count查询时提供多行索引
-	if self.Count() == 0 || (self.Record().GetByName(keyField) == nil && len(self.Record().Fields()) == 1 && self.Record().FieldByName("count") != nil) {
+	if self.Count() == 0 || (self.Record().GetByField(keyField) == nil && len(self.Record().Fields()) == 1 && self.Record().FieldByName("count") != nil) {
 		return false
 	}
 
@@ -343,7 +340,7 @@ func (self *TDataSet) SetKeyField(keyField string) bool {
 
 	// #赋值
 	for _, rec := range self.Data {
-		value := rec.GetByName(keyField)
+		value := rec.GetByField(keyField)
 		if value != nil && !utils.IsBlank(value) {
 			self.RecordsIndex.Put(value, rec) //保存ID 对应的 Record
 		}
@@ -358,12 +355,12 @@ func (self *TDataSet) IsClassic() bool {
 }
 
 // func (self *TDataSet) Fields() map[string]*TFieldSet {
-func (self *TDataSet) Fields() *treehmap.Map {
+func (self *TDataSet) Fields() []string {
 	return self.fields
 }
 
 func (self *TDataSet) HasField(name string) bool {
-	_, has := self.fields.Get(name)
+	_, has := self.fieldsIndex.Get(name)
 	return has
 }
 
@@ -378,6 +375,14 @@ func (self *TDataSet) Keys(fieldName ...string) (res []interface{}) {
 	// #新的Key
 	if len(fieldName) > 0 {
 		keyField = fieldName[0]
+		var ids []any
+		for _, rec := range self.Data {
+			value := rec.GetByField(keyField)
+			if value != nil && !utils.IsBlank(value) {
+				ids = append(ids, value)
+			}
+		}
+		return ids
 	} else {
 		keyField = "id" // #默认
 		if self.KeyField != "" {

@@ -11,21 +11,18 @@ import (
 type (
 	TRecordSet struct {
 		dataset       *TDataSet
-		fields        []string
 		values        []interface{} // []string
 		ClassicValues []interface{} // 存储经典字段值
-		//nameIndex     map[string]int // TODO treemap
-		nameIndex  *treehmap.Map
-		fieldCount int
-		isEmpty    bool
-		index      int // an index of dataset.data
+		fieldsIndex   *treehmap.Map
+		isEmpty       bool
+		index         int // the index of dataset.data
 	}
 )
 
 func NewRecordSet(record ...map[string]interface{}) *TRecordSet {
 	recset := &TRecordSet{
-		index:     -1,
-		nameIndex: treehmap.NewWithStringComparator(),
+		index:       -1,
+		fieldsIndex: treehmap.NewWithStringComparator(),
 	}
 	recset.Reset()
 
@@ -33,69 +30,20 @@ func NewRecordSet(record ...map[string]interface{}) *TRecordSet {
 		return recset
 	}
 
-	var idx int
 	for field, val := range record[0] {
-		idx = len(recset.fields)
-		//recset.nameIndex[field] = idx // 先于 lRec.fields 添加不需 -1
-		recset.nameIndex.Put(field, idx)
-		recset.fields = append(recset.fields, field)
+		//recset.fieldsIndex[field] = idx // 先于 lRec.fields 添加不需 -1
+		recset.fieldsIndex.Put(field, recset.fieldsIndex.Size())
+		//recset.fields = append(recset.fields, field)
 		recset.values = append(recset.values, val)
 
 	}
 	//#优先计算长度供Get Set设置
-	recset.fieldCount = idx + 1
-	recset.isEmpty = idx == 0
+	recset.isEmpty = recset.fieldsIndex.Size() == 0
 	return recset
 }
 
-// reset all data to blank
-func (self *TRecordSet) Reset() {
-	if self.nameIndex == nil {
-		self.nameIndex = treehmap.NewWithStringComparator()
-	} else {
-		self.nameIndex.Clear() //
-	}
-
-	self.dataset = nil
-	self.fields = make([]string, 0)
-	self.values = make([]interface{}, 0)
-	self.ClassicValues = make([]interface{}, 0)
-	self.fieldCount = 0
-	self.isEmpty = true
-
-}
-
-func (self *TRecordSet) FieldIndex(name string) int {
-	val, _ := self.nameIndex.Get(name)
-	return val.(int)
-}
-
-// 重置记录字段索引
-func (self *TRecordSet) resetByFields() {
-	self.fieldCount = len(self.fields)
-	self.values = make([]interface{}, self.fieldCount)
-
-	// rebuild indexs
-	for idx, name := range self.fields {
-		//self.nameIndex[name] = idx
-		self.nameIndex.Put(name, idx)
-
-	}
-}
-
-func (self *TRecordSet) Fields(fields ...string) []string {
-	if fields != nil {
-		//reset all
-		self.fields = fields
-		self.resetByFields()
-	}
-
-	return self.fields
-}
-
-// TODO 函数改为非Exported
 func (self *TRecordSet) get(index int, classic bool) interface{} {
-	if index >= self.fieldCount {
+	if index >= self.fieldsIndex.Size() {
 		return nil
 	}
 
@@ -103,7 +51,7 @@ func (self *TRecordSet) get(index int, classic bool) interface{} {
 }
 
 func (self *TRecordSet) set(index int, value interface{}, classic bool) bool {
-	if index >= self.fieldCount {
+	if index >= self.fieldsIndex.Size() {
 		return false
 	}
 
@@ -113,20 +61,81 @@ func (self *TRecordSet) set(index int, value interface{}, classic bool) bool {
 		self.values[index] = value
 	}
 
+	self.isEmpty = false
 	return true
+}
+
+// 重置记录字段索引
+func (self *TRecordSet) resetByFields(fields ...string) {
+	self.values = make([]interface{}, len(fields))
+
+	// rebuild indexs
+	self.fieldsIndex.Clear()
+	for idx, name := range fields {
+		self.fieldsIndex.Put(name, idx)
+	}
+}
+
+// reset all data to blank
+func (self *TRecordSet) Reset() {
+	if self.fieldsIndex == nil {
+		self.fieldsIndex = treehmap.NewWithStringComparator()
+	} else {
+		self.fieldsIndex.Clear() //
+	}
+
+	self.dataset = nil
+	self.values = make([]interface{}, 0)
+	self.ClassicValues = make([]interface{}, 0)
+	self.isEmpty = true
+}
+
+func (self *TRecordSet) GetFieldIndex(name string) int {
+	val, _ := self.fieldsIndex.Get(name)
+	return val.(int)
+}
+
+func (self *TRecordSet) Fields(fields ...string) []string {
+	if fields != nil {
+		//reset all
+		self.resetByFields(fields...)
+	}
+
+	var res []string
+	for _, field := range self.fieldsIndex.Keys() {
+		res = append(res, utils.Itf2Str(field))
+
+	}
+
+	return res
 }
 
 // the record length
 func (self *TRecordSet) Length() int {
-	return self.fieldCount
+	return self.fieldsIndex.Size()
 }
 
 func (self *TRecordSet) SetDataset(dataset *TDataSet) {
 	self.dataset = dataset
+	if self.fieldsIndex.Size() == 0 {
+	}
 }
 
-func (self *TRecordSet) GetByName(name string, classic ...bool) interface{} {
-	if index, ok := self.nameIndex.Get(name); ok {
+func (self *TRecordSet) GetByIndex(index int, classic ...bool) interface{} {
+	var isclassic bool
+	if len(classic) > 1 {
+		isclassic = classic[0]
+	}
+	return self.get(index, isclassic)
+}
+
+func (self *TRecordSet) GetByField(name string, classic ...bool) interface{} {
+	fieldsIndex := self.fieldsIndex
+	if self.fieldsIndex == nil && self.dataset != nil {
+		fieldsIndex = self.dataset.fieldsIndex
+	}
+
+	if index, ok := fieldsIndex.Get(name); ok {
 		var isclassic bool
 		if len(classic) > 1 {
 			isclassic = classic[0]
@@ -136,45 +145,35 @@ func (self *TRecordSet) GetByName(name string, classic ...bool) interface{} {
 
 	return nil
 }
+
 func (self *TRecordSet) IsEmpty() bool {
-	return self.fieldCount == 0 || self.isEmpty
+	return self.fieldsIndex.Size() == 0 || self.isEmpty
 }
 
 // !NOTE! 该函数仅供修改不做添加字段
-func (self *TRecordSet) SetByName(name string, value interface{}, classic ...bool) bool {
-	if index, ok := self.nameIndex.Get(name); ok {
-		var isclassic bool
-		if len(classic) > 1 {
-			isclassic = classic[0]
-		}
-		return self.set(index.(int), value, isclassic)
+// 字段被纳入Dataset.Fields
+func (self *TRecordSet) SetByField(field string, value interface{}, classic ...bool) bool {
+	var isclassic bool
+	if len(classic) > 1 {
+		isclassic = classic[0]
 	}
 
-	return false
-}
-
-// 字段被纳入Dataset.Fields
-func (self *TRecordSet) setByName(fs *TFieldSet, name string, value interface{}, classic bool) bool {
-	fs.IsValid = true
-
 	// 如果是一个单独非dataset下的记录
-	if self.dataset != nil && self.index != -1 && !self.dataset.HasField(name) {
-		log.Errf("The field name < %s > is not in this dataset! please to set field by < dataset.SetFields >", name)
+	if self.dataset != nil && self.index != -1 && !self.dataset.HasField(field) {
+		log.Errf("The field name < %s > is not in this dataset! please to set field by < dataset.SetFields >", field)
 		return false
 	}
 
-	if index, ok := self.nameIndex.Get(name); ok {
-		self.set(index.(int), value, classic)
+	if index, ok := self.fieldsIndex.Get(field); ok {
+		self.set(index.(int), value, isclassic)
 	} else {
-		self.nameIndex.Put(name, len(self.values))
-		self.fields = append(self.fields, name)
-		if classic {
+		self.fieldsIndex.Put(field, self.fieldsIndex.Size())
+		//self.fields = append(self.fields, name)
+		if isclassic {
 			self.ClassicValues = append(self.ClassicValues, value)
 		} else {
 			self.values = append(self.values, value)
 		}
-
-		self.fieldCount = len(self.values)
 	}
 
 	// 插入新记录到dataset
@@ -186,55 +185,21 @@ func (self *TRecordSet) setByName(fs *TFieldSet, name string, value interface{},
 	return true
 }
 
-func (self *TRecordSet) FieldByIndex(index int) *TFieldSet {
-	// 检查零界
-	if index >= self.fieldCount {
-		return nil
-	}
-
-	field := self.fields[index]
-	if self.dataset != nil {
-		// 检查零界
-		if self.dataset.Fields().Size() != self.fieldCount {
-			return nil
-		}
-
-		if res, has := self.dataset.Fields().Get(field); has {
-			fs := res.(*TFieldSet)
-			fs.RecSet = self
-			return fs
-		}
-
-	}
-
-	// 创建一个空的
-	res := newFieldSet(field, self)
-	res.IsValid = field != ""
-	return res
-}
-
 // 获取某个
 func (self *TRecordSet) FieldByName(name string) *TFieldSet {
 	// 优先验证Dataset
 	if self.dataset != nil {
-		if field, has := self.dataset.Fields().Get(name); has {
-			if field != nil {
-				fs := field.(*TFieldSet)
-				fs.RecSet = self
-				return fs
+		if i, has := self.dataset.fieldsIndex.Get(name); has {
+			if i != nil {
+				idx := i.(int)
+				return newFieldSet(idx, name, self)
 			}
 		}
 	}
 
 	// 创建一个空的
-	field := newFieldSet(name, self)
-	field.IsValid = utils.InStrings(name, self.fields...) != -1
-	/*field = &TFieldSet{
-		//dataset: self.dataset,
-		RecSet: self,
-		Name:   name,
-		//IsNil:  true,
-	}*/
+	field := newFieldSet(-1, name, self)
+	_, field.IsValid = self.fieldsIndex.Get(name)
 
 	return field
 }
@@ -242,9 +207,12 @@ func (self *TRecordSet) FieldByName(name string) *TFieldSet {
 // convert to a string map
 func (self *TRecordSet) AsStrMap() map[string]string {
 	m := make(map[string]string)
-	for idx, field := range self.fields {
-		m[field] = utils.Itf2Str(self.values[idx])
-	}
+
+	self.fieldsIndex.Each(func(key, value interface{}) {
+		if field, ok := key.(string); ok {
+			m[field] = utils.Itf2Str(self.values[value.(int)])
+		}
+	})
 
 	return m
 }
@@ -253,9 +221,11 @@ func (self *TRecordSet) AsStrMap() map[string]string {
 func (self *TRecordSet) AsItfMap() map[string]interface{} {
 	m := make(map[string]interface{})
 
-	for idx, field := range self.fields {
-		m[field] = self.values[idx]
-	}
+	self.fieldsIndex.Each(func(key, value interface{}) {
+		if field, ok := key.(string); ok {
+			m[field] = self.values[value.(int)]
+		}
+	})
 
 	return m
 }
@@ -365,10 +335,10 @@ func (self *TRecordSet) AsStruct(target interface{}, classic ...bool) error {
 }
 
 func (self *TRecordSet) MergeToStrMap(target map[string]string) (res map[string]string) {
-	for idx, field := range self.fields {
-		target[field] = utils.Itf2Str(self.values[idx])
-	}
-
+	/*	for idx, field := range self.fields {
+			target[field] = utils.Itf2Str(self.values[idx])
+		}
+	*/
 	return target
 }
 
