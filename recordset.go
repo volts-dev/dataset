@@ -185,6 +185,22 @@ func (self *TRecordSet) SetByField(field string, value interface{}, classic ...b
 	return true
 }
 
+func (self *TRecordSet) FieldByIndex(idx int) *TFieldSet {
+	fieldName, _ := self.fieldsIndex.Find(func(key, value interface{}) bool {
+		if value.(int) == idx {
+			return true
+		}
+		return false
+	})
+
+	if fieldName == nil {
+		// 创建一个空的
+		return newFieldSet(idx, "", self)
+	}
+
+	return newFieldSet(idx, fieldName.(string), self)
+}
+
 // 获取某个
 func (self *TRecordSet) FieldByName(name string) *TFieldSet {
 	// 优先验证Dataset

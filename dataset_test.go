@@ -48,6 +48,11 @@ func TestDatasetGroupby(t *testing.T) {
 	fmt.Println(result)
 }
 
+func TestDatasetFieldByIndex(t *testing.T) {
+	fieldset := ds.Record().FieldByIndex(3)
+	fmt.Println(fieldset.AsBoolean())
+}
+
 func TestDatasetAppendRecord(t *testing.T) {
 	ds := NewDataSet()
 
