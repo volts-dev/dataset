@@ -131,9 +131,10 @@ func (self *TRecordSet) GetByIndex(index int, classic ...bool) interface{} {
 
 func (self *TRecordSet) GetByField(name string, classic ...bool) interface{} {
 	fieldsIndex := self.fieldsIndex
-	if self.fieldsIndex == nil && self.dataset != nil {
-		fieldsIndex = self.dataset.fieldsIndex
-	}
+	// TODO Fix无法同步dataset 和 recordset index
+	//if self.fieldsIndex == nil && self.dataset != nil {
+	//	fieldsIndex = self.dataset.fieldsIndex
+	//}
 
 	if index, ok := fieldsIndex.Get(name); ok {
 		var isclassic bool
@@ -159,7 +160,7 @@ func (self *TRecordSet) SetByField(field string, value interface{}, classic ...b
 	}
 
 	// 如果是一个单独非dataset下的记录
-	if self.dataset != nil && self.index != -1 && !self.dataset.HasField(field) {
+	if self.dataset != nil && self.dataset.config.checkFields && self.index != -1 && !self.dataset.HasField(field) {
 		log.Errf("The field name < %s > is not in this dataset! please to set field by < dataset.SetFields >", field)
 		return false
 	}
