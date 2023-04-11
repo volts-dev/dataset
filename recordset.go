@@ -90,11 +90,6 @@ func (self *TRecordSet) Reset() {
 	self.isEmpty = true
 }
 
-func (self *TRecordSet) GetFieldIndex(name string) int {
-	val, _ := self.fieldsIndex.Get(name)
-	return val.(int)
-}
-
 func (self *TRecordSet) Fields(fields ...string) []string {
 	if fields != nil {
 		//reset all
@@ -119,6 +114,11 @@ func (self *TRecordSet) SetDataset(dataset *TDataSet) {
 	self.dataset = dataset
 	if self.fieldsIndex.Size() == 0 {
 	}
+}
+
+func (self *TRecordSet) GetFieldIndex(name string) int {
+	val, _ := self.fieldsIndex.Get(name)
+	return val.(int)
 }
 
 func (self *TRecordSet) GetByIndex(index int, classic ...bool) interface{} {
@@ -178,6 +178,9 @@ func (self *TRecordSet) SetByField(field string, value interface{}, classic ...b
 
 	// 插入新记录到dataset
 	if self.dataset != nil && self.index == -1 {
+		if _, has := self.dataset.fieldsIndex.Get(field); !has {
+			self.dataset.fieldsIndex.Put(field, self.dataset.fieldsIndex.Size())
+		}
 		self.dataset.AppendRecord(self)    // 插入数据后Position会变更到当前记录
 		self.index = self.dataset.Position // 记录当前索引值
 	}

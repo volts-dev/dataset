@@ -53,6 +53,10 @@ func TestDatasetFieldByIndex(t *testing.T) {
 	fmt.Println(fieldset.AsBoolean())
 }
 
+func TestDatasetSetByField(t *testing.T) {
+	ds.Record().SetByField("new", "gggg")
+}
+
 func TestDatasetAppendRecord(t *testing.T) {
 	ds := NewDataSet()
 
