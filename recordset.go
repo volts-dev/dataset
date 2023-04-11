@@ -180,6 +180,10 @@ func (self *TRecordSet) SetByField(field string, value interface{}, classic ...b
 	if self.dataset != nil && self.index == -1 {
 		if _, has := self.dataset.fieldsIndex.Get(field); !has {
 			self.dataset.fieldsIndex.Put(field, self.dataset.fieldsIndex.Size())
+			self.dataset.fields = nil
+			for _, field := range self.dataset.fieldsIndex.Keys() {
+				self.dataset.fields = append(self.dataset.fields, utils.Itf2Str(field))
+			}
 		}
 		self.dataset.AppendRecord(self)    // 插入数据后Position会变更到当前记录
 		self.index = self.dataset.Position // 记录当前索引值
