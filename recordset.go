@@ -147,7 +147,7 @@ func (self *TRecordSet) GetByField(name string, classic ...bool) interface{} {
 }
 
 func (self *TRecordSet) IsEmpty() bool {
-	return self.fieldsIndex.Size() == 0 || self.isEmpty
+	return self.fieldsIndex == nil || self.fieldsIndex.Size() == 0 || self.isEmpty
 }
 
 // !NOTE! 该函数仅供修改不做添加字段
