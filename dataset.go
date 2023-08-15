@@ -166,6 +166,7 @@ func (self *TDataSet) validateFields(record *TRecordSet) {
 // NOTE:第一条记录决定空dataset的fields 默认情况下会自动舍弃多余字段的数据
 // appending a record.Its fields will be come the standard format when it is the first record of this set
 func (self *TDataSet) AppendRecord(records ...*TRecordSet) error {
+	recCount := len(self.Data)
 	for _, rec := range records {
 		if rec == nil {
 			continue
@@ -175,8 +176,11 @@ func (self *TDataSet) AppendRecord(records ...*TRecordSet) error {
 
 		//#TODO 考虑是否为复制
 		rec.dataset = self //# 将其归为
+		rec.index = recCount
 		self.Data = append(self.Data, rec)
 		self.Position = len(self.Data) - 1
+
+		recCount++
 	}
 
 	// 清除索引
@@ -242,7 +246,24 @@ func (self *TDataSet) GroupBy(field string) map[any]*TDataSet {
 			grp.AppendRecord(rec)
 		}
 	}
+
 	return groups
+}
+
+// 根据字段取所有记录对应的值
+func (self *TDataSet) ValueBy(fieldName string) (values []any) {
+	if self.Count() == 0 {
+		return nil
+	}
+
+	for _, rec := range self.Data {
+		value := rec.GetByField(fieldName)
+		if value != nil && !utils.IsBlank(value) {
+			values = append(values, value)
+		}
+	}
+
+	return values
 }
 
 // inverse : the result will select inverse

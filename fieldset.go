@@ -48,7 +48,7 @@ func (self *TFieldSet) AsString() string {
 		return ""
 	}
 
-	return utils.Itf2Str(self.RecSet.GetByField(self.Name, false))
+	return utils.ToString(self.RecSet.GetByField(self.Name, false))
 }
 
 // TODO
@@ -67,7 +67,7 @@ func (self *TFieldSet) AsInteger() (result int64) {
 		return 0
 	}
 
-	return utils.Itf2Int64(self.RecSet.GetByField(self.Name, false))
+	return utils.ToInt64(self.RecSet.GetByField(self.Name, false))
 }
 
 // set/get value of field as bool type
@@ -86,7 +86,7 @@ func (self *TFieldSet) AsDateTime() time.Time {
 		return time.Time{}
 	}
 
-	return utils.Itf2Time(self.RecSet.GetByField(self.Name, false))
+	return utils.ToTime(self.RecSet.GetByField(self.Name, false))
 }
 
 func (self *TFieldSet) AsFloat() (result float64) {
@@ -95,5 +95,5 @@ func (self *TFieldSet) AsFloat() (result float64) {
 		return 0.0
 	}
 
-	return utils.Itf2Float(self.RecSet.GetByField(self.Name, false))
+	return utils.ToFloat64(self.RecSet.GetByField(self.Name, false))
 }
