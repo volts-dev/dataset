@@ -61,6 +61,15 @@ func (self *TFieldSet) AsDataset() *TDataSet {
 	return nil
 }
 
+// 是否为空值
+func (self *TFieldSet) IsNull() bool {
+	if v := self.RecSet.GetByField(self.Name, false); v != nil {
+		utils.IsBlank(v) // TODO 是否应该判定空值
+	}
+
+	return true
+}
+
 func (self *TFieldSet) AsInteger() (result int64) {
 	if self == nil {
 		log.Warnf("Can not covert value into int64 since the field is invalidation!")
