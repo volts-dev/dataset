@@ -31,6 +31,7 @@ func WithData(datas ...map[string]any) Option {
 		for _, m := range datas {
 			cfg.dataset.NewRecord(m)
 		}
+		cfg.dataset.First()
 	}
 }
 
