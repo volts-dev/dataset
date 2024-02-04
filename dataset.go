@@ -115,7 +115,7 @@ func (self *TDataSet) Next() {
 
 // is the end of the data list
 func (self *TDataSet) Eof() bool {
-	return self == nil || self.Position == len(self.Data)
+	return self == nil || self.Position >= len(self.Data)
 }
 
 // return the current record

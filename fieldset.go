@@ -58,6 +58,12 @@ func (self *TFieldSet) AsDataset() *TDataSet {
 		return nil
 	}
 
+	if m, ok := self.RecSet.GetByField(self.Name, false).(map[string]any); ok {
+		return NewDataSet(
+			WithData(m),
+		)
+	}
+
 	return nil
 }
 
