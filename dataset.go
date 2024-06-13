@@ -1,6 +1,7 @@
 package dataset
 
 import (
+	"strings"
 	"sync"
 
 	treehmap "github.com/emirpasic/gods/maps/treemap"
@@ -227,20 +228,29 @@ func (self *TDataSet) EditRecord(Key string, Record map[string]interface{}) bool
 	return true
 }
 
+// filed: 可以为格式"filedName/filedName.filedName"
 func (self *TDataSet) GroupBy(field string) map[any]*TDataSet {
-	if field == "" || !self.HasField(field) {
+	fileds := strings.Split(field, ".")
+	if fileds[0] == "" || !self.HasField(fileds[0]) {
 		return nil
 	}
 
 	// TODO 优化FieldIndex获取减少重复使用
 	groups := make(map[any]*TDataSet)
 	for _, rec := range self.Data {
-		i := rec.GetFieldIndex(field)
-		if v := rec.get(i, false); v != nil {
-			grp := groups[v]
+		i := rec.GetFieldIndex(fileds[0])
+		if idxValue := rec.get(i, false); idxValue != nil {
+			var grp *TDataSet
+			if len(fileds) > 1 {
+				if m, ok := idxValue.(map[string]any); ok {
+					idxValue = m[fileds[1]]
+				}
+			}
+
+			grp = groups[idxValue]
 			if grp == nil {
 				grp = NewDataSet()
-				groups[v] = grp
+				groups[idxValue] = grp
 			}
 
 			grp.AppendRecord(rec)

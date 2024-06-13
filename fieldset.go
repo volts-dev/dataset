@@ -58,10 +58,25 @@ func (self *TFieldSet) AsDataset() *TDataSet {
 		return nil
 	}
 
-	if m, ok := self.RecSet.GetByField(self.Name, false).(map[string]any); ok {
+	value := self.RecSet.GetByField(self.Name, false)
+	switch v := value.(type) {
+	case map[string]any:
 		return NewDataSet(
-			WithData(m),
+			WithData(v),
 		)
+	case []map[string]any:
+		return NewDataSet(
+			WithData(v...),
+		)
+	case []any:
+		if _, ok := v[0].(map[string]any); ok {
+			ds := NewDataSet()
+			for _, m := range v {
+				ds.NewRecord(m.(map[string]any))
+			}
+
+			return ds
+		}
 	}
 
 	return nil
