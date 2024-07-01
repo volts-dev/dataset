@@ -242,7 +242,7 @@ func (self *TRecordSet) AsStrMap() map[string]string {
 }
 
 // convert to an interface{} map
-func (self *TRecordSet) AsItfMap() map[string]interface{} {
+func (self *TRecordSet) AsMap() map[string]interface{} {
 	m := make(map[string]interface{})
 
 	self.fieldsIndex.Each(func(key, value interface{}) {
@@ -256,7 +256,7 @@ func (self *TRecordSet) AsItfMap() map[string]interface{} {
 
 // convert to a json string
 func (self *TRecordSet) AsJson() (string, error) {
-	js, err := json.Marshal(self.AsItfMap())
+	js, err := json.Marshal(self.AsMap())
 	if err != nil {
 		return "", err
 	}
@@ -280,7 +280,7 @@ func (self *TRecordSet) AsStruct(target interface{}, classic ...bool) error {
 		return nil
 	}
 
-	decode(self.AsItfMap(), target)
+	decode(self.AsMap(), target)
 
 	/*// 使用经典数据模式
 	lClassic := false
@@ -358,7 +358,7 @@ func (self *TRecordSet) AsStruct(target interface{}, classic ...bool) error {
 	return nil
 }
 
-func (self *TRecordSet) MergeToStrMap(target map[string]string) (res map[string]string) {
+func (self *TRecordSet) MergeToMap(target map[string]string) (res map[string]string) {
 	/*	for idx, field := range self.fields {
 			target[field] = utils.ToString(self.values[idx])
 		}

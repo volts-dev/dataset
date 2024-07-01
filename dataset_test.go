@@ -107,10 +107,10 @@ func TestDataset_NewRec(t *testing.T) {
 	ds.SetFields("name", "key")
 	ds.Next()
 	ds.Record().SetByField("name", "dataset")
-	t.Log(ds.Count(), ds.Position, ds.Record().AsItfMap())
+	t.Log(ds.Count(), ds.Position, ds.Record().AsMap())
 	ds.Next()
 	ds.Record().SetByField("key", "dataset")
-	t.Log(ds.Count(), ds.Position, ds.Record().AsItfMap())
+	t.Log(ds.Count(), ds.Position, ds.Record().AsMap())
 
 	rec := NewRecordSet()
 	// 测试动态添加字段和值
@@ -123,12 +123,12 @@ func TestDataset_NewRec(t *testing.T) {
 	ds.Record().SetByField("name3", "CCCC")
 	ds.Record().SetByField("sdfsdfd", "CCCC")
 
-	t.Log(rec.AsItfMap(), ds.Count(), ds.Record().AsItfMap())
+	t.Log(rec.AsMap(), ds.Count(), ds.Record().AsMap())
 	t.Log(ds.FieldByName("name").AsString())
 	t.Log(ds.FieldByName("name2").AsInterface(), ds.Record().Fields(), ds.Record().FieldByName("name2"))
 	t.Log(ds.FieldByName("name3").AsString(), ds.Record().FieldByName("name3"))
 
 	ds.Delete()
-	t.Log(rec.AsItfMap(), ds.Count(), ds.Record().AsItfMap())
+	t.Log(rec.AsMap(), ds.Count(), ds.Record().AsMap())
 
 }
