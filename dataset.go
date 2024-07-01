@@ -291,7 +291,7 @@ func (self *TDataSet) Filter(field string, values []interface{}, inverse ...bool
 	for _, rec := range self.Data {
 		i := rec.GetFieldIndex(field)
 		val := rec.get(i, false)
-		if inv && utils.IdxOfItfs(val, values...) == -1 {
+		if inv && utils.IndexOf(val, values...) == -1 {
 			newDataSet.AppendRecord(rec)
 		} else if !inv {
 			newDataSet.AppendRecord(rec)

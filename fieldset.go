@@ -39,7 +39,7 @@ func (self *TFieldSet) AsBytes() []byte {
 		return nil
 	}
 
-	return []byte(utils.Itf2Str(self.RecSet.GetByField(self.Name, false)))
+	return []byte(utils.ToString(self.RecSet.GetByField(self.Name, false)))
 }
 
 func (self *TFieldSet) AsString() string {
@@ -107,7 +107,7 @@ func (self *TFieldSet) AsBoolean() bool {
 		return false
 	}
 
-	return utils.Itf2Bool(self.RecSet.GetByField(self.Name, false))
+	return utils.ToBool(self.RecSet.GetByField(self.Name, false))
 }
 
 func (self *TFieldSet) AsDateTime() time.Time {

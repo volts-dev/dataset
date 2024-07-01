@@ -98,7 +98,7 @@ func (self *TRecordSet) Fields(fields ...string) []string {
 
 	var res []string
 	for _, field := range self.fieldsIndex.Keys() {
-		res = append(res, utils.Itf2Str(field))
+		res = append(res, utils.ToString(field))
 
 	}
 
@@ -183,7 +183,7 @@ func (self *TRecordSet) SetByField(field string, value interface{}, classic ...b
 			self.dataset.fieldsIndex.Put(field, self.dataset.fieldsIndex.Size())
 			self.dataset.fields = nil
 			for _, field := range self.dataset.fieldsIndex.Keys() {
-				self.dataset.fields = append(self.dataset.fields, utils.Itf2Str(field))
+				self.dataset.fields = append(self.dataset.fields, utils.ToString(field))
 			}
 		}
 		self.dataset.AppendRecord(self)    // 插入数据后Position会变更到当前记录
@@ -234,7 +234,7 @@ func (self *TRecordSet) AsStrMap() map[string]string {
 
 	self.fieldsIndex.Each(func(key, value interface{}) {
 		if field, ok := key.(string); ok {
-			m[field] = utils.Itf2Str(self.values[value.(int)])
+			m[field] = utils.ToString(self.values[value.(int)])
 		}
 	})
 
@@ -324,7 +324,7 @@ func (self *TRecordSet) AsStruct(target interface{}, classic ...bool) error {
 				case reflect.Bool:
 					lItfVal = utils.Itf2Bool(lItfVal)
 				case reflect.String:
-					lItfVal = utils.Itf2Str(lItfVal)
+					lItfVal = utils.ToString(lItfVal)
 				case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32:
 					lItfVal = utils.Itf2Int(lItfVal)
 				case reflect.Int64:
@@ -360,7 +360,7 @@ func (self *TRecordSet) AsStruct(target interface{}, classic ...bool) error {
 
 func (self *TRecordSet) MergeToStrMap(target map[string]string) (res map[string]string) {
 	/*	for idx, field := range self.fields {
-			target[field] = utils.Itf2Str(self.values[idx])
+			target[field] = utils.ToString(self.values[idx])
 		}
 	*/
 	return target
