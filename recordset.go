@@ -14,8 +14,8 @@ type (
 		values        []interface{} // []string
 		ClassicValues []interface{} // 存储经典字段值
 		fieldsIndex   *treehmap.Map
-		isEmpty       bool
-		index         int // the index of dataset.data
+		//isEmpty       bool
+		index int // the index of dataset.data
 	}
 )
 
@@ -38,7 +38,7 @@ func NewRecordSet(record ...map[string]interface{}) *TRecordSet {
 
 	}
 	//#优先计算长度供Get Set设置
-	recset.isEmpty = recset.fieldsIndex.Size() == 0
+	//recset.isEmpty = recset.fieldsIndex.Size() == 0
 	return recset
 }
 
@@ -61,7 +61,7 @@ func (self *TRecordSet) set(index int, value interface{}, classic bool) bool {
 		self.values[index] = value
 	}
 
-	self.isEmpty = false
+	//self.isEmpty = false
 	return true
 }
 
@@ -87,7 +87,7 @@ func (self *TRecordSet) Reset() {
 	self.dataset = nil
 	self.values = make([]interface{}, 0)
 	self.ClassicValues = make([]interface{}, 0)
-	self.isEmpty = true
+	//self.isEmpty = true
 }
 
 func (self *TRecordSet) Fields(fields ...string) []string {
@@ -148,7 +148,7 @@ func (self *TRecordSet) GetByField(name string, classic ...bool) interface{} {
 }
 
 func (self *TRecordSet) IsEmpty() bool {
-	return self.fieldsIndex == nil || self.fieldsIndex.Size() == 0 || self.isEmpty
+	return self == nil || self.fieldsIndex == nil || self.fieldsIndex.Size() == 0 //|| self.isEmpty
 }
 
 // !NOTE! 该函数仅供修改不做添加字段
