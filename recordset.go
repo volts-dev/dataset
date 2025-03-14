@@ -68,6 +68,8 @@ func (self *TRecordSet) set(index int, value interface{}, classic bool) bool {
 // 重置记录字段索引
 func (self *TRecordSet) resetByFields(fields ...string) {
 	self.values = make([]interface{}, len(fields))
+	self.ClassicValues = make([]interface{}, 0)
+	self.fieldsIndex.Clear()
 
 	// rebuild indexs
 	self.fieldsIndex.Clear()
@@ -78,16 +80,9 @@ func (self *TRecordSet) resetByFields(fields ...string) {
 
 // reset all data to blank
 func (self *TRecordSet) Reset() {
-	if self.fieldsIndex == nil {
-		self.fieldsIndex = treehmap.NewWithStringComparator()
-	} else {
-		self.fieldsIndex.Clear() //
-	}
-
 	self.dataset = nil
-	self.values = make([]interface{}, 0)
-	self.ClassicValues = make([]interface{}, 0)
-	//self.isEmpty = true
+	self.index = -1
+	self.resetByFields()
 }
 
 func (self *TRecordSet) Fields(fields ...string) []string {
