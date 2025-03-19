@@ -69,9 +69,11 @@ func (self *TRecordSet) set(index int, value interface{}, classic bool) bool {
 func (self *TRecordSet) resetByFields(fields ...string) {
 	self.values = make([]interface{}, len(fields))
 	self.ClassicValues = make([]interface{}, 0)
-	self.fieldsIndex.Clear()
 
 	// rebuild indexs
+	if self.fieldsIndex == nil {
+		self.fieldsIndex = treehmap.NewWithStringComparator()
+	}
 	self.fieldsIndex.Clear()
 	for idx, name := range fields {
 		self.fieldsIndex.Put(name, idx)
