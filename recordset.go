@@ -43,7 +43,7 @@ func NewRecordSet(record ...map[string]interface{}) *TRecordSet {
 }
 
 func (self *TRecordSet) get(index int, classic bool) interface{} {
-	if index >= self.fieldsIndex.Size() {
+	if index < 0 || index >= self.fieldsIndex.Size() {
 		return nil
 	}
 
@@ -51,7 +51,7 @@ func (self *TRecordSet) get(index int, classic bool) interface{} {
 }
 
 func (self *TRecordSet) set(index int, value interface{}, classic bool) bool {
-	if index >= self.fieldsIndex.Size() {
+	if index < 0 || index >= self.fieldsIndex.Size() {
 		return false
 	}
 
@@ -114,7 +114,11 @@ func (self *TRecordSet) SetDataset(dataset *TDataSet) {
 }
 
 func (self *TRecordSet) GetFieldIndex(name string) int {
-	val, _ := self.fieldsIndex.Get(name)
+	val, ok := self.fieldsIndex.Get(name)
+	if !ok {
+		return -1 // 或者定义一个常量表示未找到，如 math.MinInt32
+	}
+
 	return val.(int)
 }
 
@@ -183,8 +187,8 @@ func (self *TRecordSet) SetByField(field string, value interface{}, classic ...b
 				self.dataset.fields = append(self.dataset.fields, utils.ToString(field))
 			}
 		}
-		self.dataset.AppendRecord(self)    // 插入数据后Position会变更到当前记录
-		self.index = self.dataset.Position // 记录当前索引值
+		self.dataset.AppendRecord(self)      // 插入数据后Position会变更到当前记录
+		self.index = self.dataset.Position() // 记录当前索引值
 	}
 
 	return true
@@ -209,10 +213,9 @@ func (self *TRecordSet) FieldByIndex(idx int) *TFieldSet {
 // 获取某个
 func (self *TRecordSet) FieldByName(name string) *TFieldSet {
 	// 优先验证Dataset
-	if self.dataset != nil {
+	if self.dataset != nil && self.dataset.fieldsIndex != nil {
 		if i, has := self.dataset.fieldsIndex.Get(name); has {
-			if i != nil {
-				idx := i.(int)
+			if idx, ok := i.(int); ok {
 				return newFieldSet(idx, name, self)
 			}
 		}

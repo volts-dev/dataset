@@ -3,6 +3,7 @@ package dataset
 import (
 	"strings"
 	"sync"
+	"sync/atomic"
 
 	treehmap "github.com/emirpasic/gods/maps/treemap"
 	"github.com/volts-dev/utils"
@@ -22,8 +23,9 @@ type (
 		Data         []*TRecordSet //
 		fieldsIndex  *treehmap.Map
 		RecordsIndex *treehmap.Map // 主键引索列表 // for RecordByKey() Keys()
-		Position     int           // 游标
 		FieldCount   int           // 字段数
+		position     atomic.Int32  // 游标
+
 		// classic 字段存储的数据包含有 Struct/Array/map 等
 		classic bool // 是否存储着经典模式的数据 many2one字段会显示ID和Name
 	}
@@ -40,7 +42,7 @@ func newRecordsIndex() *treehmap.Map {
 
 func NewDataSet(opts ...Option) *TDataSet {
 	dataset := &TDataSet{
-		Position:    0,
+		//Position:    0,
 		Data:        make([]*TRecordSet, 0),
 		fieldsIndex: treehmap.NewWithStringComparator(),
 	}
@@ -100,35 +102,36 @@ func (self *TDataSet) Clear() {
 	self.First()
 }
 
+func (self *TDataSet) Position() int {
+	return int(self.position.Load())
+}
+
 // set the Pos on first
 func (self *TDataSet) First() {
-	self.Lock()
-	self.Position = 0
-	self.Unlock()
+	self.position.Store(0)
 }
 
 // goto next record
 func (self *TDataSet) Next() {
-	self.Lock()
-	self.Position++
-	self.Unlock()
+	self.position.Add(1)
 }
 
 // is the end of the data list
 func (self *TDataSet) Eof() bool {
-	return self == nil || self.Position >= len(self.Data)
+	return self == nil || int(self.position.Load()) >= len(self.Data)
 }
 
 // return the current record
 func (self *TDataSet) Record() *TRecordSet {
+	pos := int(self.position.Load())
 	count := len(self.Data)
-	if count == 0 || count <= self.Position {
+	if count == 0 || count <= pos {
 		// 规避零界点取值
 		rec := NewRecordSet()
 		rec.dataset = self
 		return rec
 	} else {
-		if rec := self.Data[self.Position]; rec != nil {
+		if rec := self.Data[pos]; rec != nil {
 			return rec
 		}
 	}
@@ -179,13 +182,13 @@ func (self *TDataSet) AppendRecord(records ...*TRecordSet) error {
 		rec.dataset = self //# 将其归为
 		rec.index = recCount
 		self.Data = append(self.Data, rec)
-		self.Position = len(self.Data) - 1
 
 		recCount++
 	}
+	self.position.Store(int32(recCount - 1))
 
 	// 清除索引
-	if self.RecordsIndex != nil && self.RecordsIndex.Size() > 0 {
+	if self.RecordsIndex != nil {
 		self.RecordsIndex.Clear()
 	}
 
@@ -198,12 +201,15 @@ func (self *TDataSet) NewRecord(record map[string]interface{}) error {
 }
 
 func (self *TDataSet) Delete(idx ...int) bool {
+	self.Lock()
+	defer self.Unlock()
+
 	cnt := len(self.Data)
 	if cnt == 0 {
 		return true
 	}
 
-	pos := self.Position
+	pos := int(self.position.Load())
 	if len(idx) > 0 {
 		pos = idx[0]
 	}
@@ -278,7 +284,7 @@ func (self *TDataSet) ValueBy(fieldName string) (values []any) {
 
 // inverse : the result will select inverse
 func (self *TDataSet) Filter(field string, values []interface{}, inverse ...bool) *TDataSet {
-	if field == "" || values == nil {
+	if field == "" || len(values) == 0 {
 		return nil
 	}
 
