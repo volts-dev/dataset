@@ -11,7 +11,7 @@ import (
 )
 
 // TODO　使用全局池回收利用
-var log = logger.New("Dataset")
+var log logger.ILogger
 
 type (
 	TDataSet struct {
@@ -30,6 +30,10 @@ type (
 		classic bool // 是否存储着经典模式的数据 many2one字段会显示ID和Name
 	}
 )
+
+func init() {
+	log = logger.New("Dataset")
+}
 
 func newRecordsIndex() *treehmap.Map {
 	return treehmap.NewWith(func(a, b interface{}) int {
