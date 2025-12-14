@@ -162,7 +162,7 @@ func (self *TRecordSet) SetByField(field string, value interface{}, classic ...b
 
 	// 如果是一个单独非dataset下的记录
 	if self.dataset != nil && self.dataset.config.checkFields && self.index != -1 && !self.dataset.HasField(field) {
-		log.Errf("The field name < %s > is not in this dataset! please to set field by < dataset.SetFields >", field)
+		//log.Errf("The field name < %s > is not in this dataset! please to set field by < dataset.SetFields >", field)
 		return false
 	}
 

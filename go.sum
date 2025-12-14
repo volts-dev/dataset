@@ -179,8 +179,6 @@ github.com/stretchr/testify v1.8.4 h1:CcVxjf3Q8PM0mHUKJCdn+eZZtm5yQwehR5yeSVQQcU
 github.com/stretchr/testify v1.8.4/go.mod h1:sz/lmYIOXD/1dqDmKjjqLyZ2RngseejIcXlSw2iwfAo=
 github.com/subosito/gotenv v1.6.0 h1:9NlTDc1FTs4qu0DDq7AEtTPNw6SVm7uBMsUCUjABIf8=
 github.com/subosito/gotenv v1.6.0/go.mod h1:Dk4QP5c2W3ibzajGcXpNraDfq2IrhjMIvMSWPKKo0FU=
-github.com/volts-dev/utils v0.0.0-20240219154825-d1eba93edd3f h1:rRPxSynQ+NxJTn1vDiZu3lT1MdZFFfYIJdS4BiCjAO4=
-github.com/volts-dev/utils v0.0.0-20240219154825-d1eba93edd3f/go.mod h1:TODvPD1m6eFUenwyxUSS1unXP95G4RMa6oLy7AwX33E=
 github.com/volts-dev/utils v0.0.0-20240701185618-78901418ef24 h1:H5oT9+uiWAGSPIHRBbU3jKKZM8MNJOIR1LJjt4Q4q+Q=
 github.com/volts-dev/utils v0.0.0-20240701185618-78901418ef24/go.mod h1:TODvPD1m6eFUenwyxUSS1unXP95G4RMa6oLy7AwX33E=
 github.com/volts-dev/volts v0.0.0-20240613070415-6729b2a234fb h1:eXCE8nNj6oIwTLP2wUoKzxFK+AdaFRtQAYbn49t+tNI=

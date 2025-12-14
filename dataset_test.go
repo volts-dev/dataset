@@ -1,7 +1,6 @@
 package dataset
 
 import (
-	//"fmt"
 	"fmt"
 	"testing"
 	"time"
@@ -67,7 +66,7 @@ func TestDatasetAppendRecord(t *testing.T) {
 	rec.SetByField("time", time.Now())
 	err := ds.AppendRecord(rec)
 	if err != nil {
-		log.Fatal(err)
+		t.Fatal(err)
 	}
 
 	rec2 := NewRecordSet()
@@ -77,14 +76,14 @@ func TestDatasetAppendRecord(t *testing.T) {
 	rec2.SetByField("time2", time.Now())
 	err = ds.AppendRecord(rec2)
 	if err != nil {
-		log.Fatal(err)
+		t.Fatal(err)
 	}
 	fmt.Println(ds.Data[0].GetByField("name"))
 	fmt.Println(ds.Data[1].GetByField("name"))
 	fmt.Println(ds.Data[1].GetByField("name2"))
 
 	if ds.Count() != 2 {
-		log.Fatalf("AppendRecord fail")
+		t.Fatalf("AppendRecord fail")
 	}
 }
 
