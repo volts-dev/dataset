@@ -1,13 +1,14 @@
 package dataset
 
 import (
+	"fmt"
 	"strings"
 	"sync"
 	"sync/atomic"
 
 	treehmap "github.com/emirpasic/gods/maps/treemap"
 	"github.com/volts-dev/utils"
-	"github.com/volts-dev/volts/logger"
+	//"github.com/volts-dev/volts/logger"
 )
 
 // TODO　使用全局池回收利用
@@ -140,7 +141,7 @@ func (self *TDataSet) Record() *TRecordSet {
 
 // #检验字段合法
 // TODO 简化
-func (self *TDataSet) validateFields(record *TRecordSet) {
+func (self *TDataSet) validateFields(record *TRecordSet) error {
 	// #优先记录该数据集的字段
 	if self.Count() == 0 && self.fieldsIndex.Size() == 0 {
 		self.fields = record.Fields()
@@ -159,11 +160,13 @@ func (self *TDataSet) validateFields(record *TRecordSet) {
 		for _, field := range record.Fields() {
 			if field != "" {
 				if _, has := self.fieldsIndex.Get(field); !has {
-					logger.Errf("The field name < %v > is not in this dataset! please to set field by < dataset.SetFields >", field)
+					return fmt.Errorf("The field name < %v > is not in this dataset! please to set field by < dataset.SetFields >", field)
 				}
 			}
 		}
 	}
+
+	return nil
 }
 
 // NOTE:第一条记录决定空dataset的fields 默认情况下会自动舍弃多余字段的数据
@@ -175,7 +178,9 @@ func (self *TDataSet) AppendRecord(records ...*TRecordSet) error {
 			continue
 		}
 
-		self.validateFields(rec)
+		if err := self.validateFields(rec); err != nil {
+			return err
+		}
 
 		//#TODO 考虑是否为复制
 		rec.dataset = self //# 将其归为
@@ -326,17 +331,17 @@ func (self *TDataSet) RecordByKey(key interface{}, key_field ...string) *TRecord
 	if self.RecordsIndex == nil || self.RecordsIndex.Size() != len(self.Data) {
 		if self.KeyField == "" {
 			if len(key_field) == 0 {
-				logger.Warnf(`You should point out the key_field name!`) //#重要提示
+				//logger.Warnf(`You should point out the key_field name!`) //#重要提示
 				return nil
 			} else {
 				if !self.SetKeyField(key_field[0]) {
-					logger.Warnf(`Set key_field fail when call RecordByKey(key_field:%v)!`, key_field[0])
+					//logger.Warnf(`Set key_field fail when call RecordByKey(key_field:%v)!`, key_field[0])
 					return nil
 				}
 			}
 		} else {
 			if !self.SetKeyField(self.KeyField) {
-				logger.Warnf(`Set key_field fail when call RecordByKey(self.KeyField:%v)!`, self.KeyField)
+				//logger.Warnf(`Set key_field fail when call RecordByKey(self.KeyField:%v)!`, self.KeyField)
 				return nil
 			}
 		}
