@@ -8,7 +8,6 @@ import (
 
 	treehmap "github.com/emirpasic/gods/maps/treemap"
 	"github.com/volts-dev/utils"
-	//"github.com/volts-dev/volts/logger"
 )
 
 // TODO　使用全局池回收利用
@@ -16,14 +15,15 @@ import (
 type (
 	TDataSet struct {
 		sync.RWMutex
-		config       *Config
-		Name         string        // 数据模型名称 默认为空白 特殊情况下为Model的名称
-		KeyField     string        // 主键字段
-		fields       []string      // 字段引索列表
-		Data         []*TRecordSet //
-		fieldsIndex  *treehmap.Map
+		config      *Config
+		Name        string        // 数据模型名称 默认为空白 特殊情况下为Model的名称
+		KeyField    string        // 主键字段
+		fields      []string      // 字段引索列表
+		Data        []*TRecordSet //
+		fieldsIndex map[string]int
+		FieldCount  int // 字段数
+
 		RecordsIndex *treehmap.Map // 主键引索列表 // for RecordByKey() Keys()
-		FieldCount   int           // 字段数
 		position     atomic.Int32  // 游标
 
 		// classic 字段存储的数据包含有 Struct/Array/map 等
@@ -42,10 +42,9 @@ func newRecordsIndex() *treehmap.Map {
 
 func NewDataSet(opts ...Option) *TDataSet {
 	dataset := &TDataSet{
-		//Position:    0,
-		Data:        make([]*TRecordSet, 0),
-		fieldsIndex: treehmap.NewWithStringComparator(),
+		Data: make([]*TRecordSet, 0),
 	}
+
 	newConfig(dataset, opts...)
 	return dataset
 }
@@ -69,14 +68,15 @@ func (self *TDataSet) Range(fn func(pos int, record *TRecordSet) error) error {
 			return err
 		}
 	}
+
 	return nil
 }
 
 // TODO  当TDataSet无数据是返回错误
 // TODO HasField()bool
 func (self *TDataSet) FieldByName(field string) (fieldSet *TFieldSet) {
-	if idx, has := self.fieldsIndex.Get(field); has {
-		return newFieldSet(idx.(int), field, self.Record())
+	if idx, has := self.fieldsIndex[field]; has {
+		return newFieldSet(idx, field, self.Record())
 	}
 	return newFieldSet(-1, field, self.Record())
 }
@@ -143,23 +143,24 @@ func (self *TDataSet) Record() *TRecordSet {
 // TODO 简化
 func (self *TDataSet) validateFields(record *TRecordSet) error {
 	// #优先记录该数据集的字段
-	if self.Count() == 0 && self.fieldsIndex.Size() == 0 {
+	if self.Count() == 0 && self.FieldCount == 0 {
 		self.fields = record.Fields()
+		self.fieldsIndex = make(map[string]int)
 		for idx, field := range self.fields {
 			if field != "" { // TODO 不应该有空值 需检查
-				self.fieldsIndex.Put(field, idx)
+				self.fieldsIndex[field] = idx
 			}
 		}
 
 		//# 添加字段长度
-		self.FieldCount = self.fieldsIndex.Size()
+		self.FieldCount = len(self.fieldsIndex)
 	}
 
 	//#检验字段合法
 	if self.config.checkFields {
 		for _, field := range record.Fields() {
 			if field != "" {
-				if _, has := self.fieldsIndex.Get(field); !has {
+				if _, has := self.fieldsIndex[field]; !has {
 					return fmt.Errorf("The field name < %v > is not in this dataset! please to set field by < dataset.SetFields >", field)
 				}
 			}
@@ -356,10 +357,10 @@ func (self *TDataSet) RecordByKey(key interface{}, key_field ...string) *TRecord
 
 // 设置固定字段
 func (self *TDataSet) SetFields(fields ...string) {
-	self.fieldsIndex.Clear()
+	self.fieldsIndex = make(map[string]int)
 	self.fields = fields
 	for idx, name := range self.fields {
-		self.fieldsIndex.Put(name, idx)
+		self.fieldsIndex[name] = idx
 	}
 }
 
@@ -401,28 +402,31 @@ func (self *TDataSet) Fields() []string {
 }
 
 func (self *TDataSet) HasField(name string) bool {
-	_, has := self.fieldsIndex.Get(name)
+	_, has := self.fieldsIndex[name]
 	return has
 }
 
 // return all the keys value
 // 返回所有记录的非空非Nil主键值
+// 优化：避免为获取 keys 而构建完整索引，直接遍历 dataset
 func (self *TDataSet) Keys(fieldName ...string) (res []interface{}) {
 	if self.Count() == 0 {
 		return nil
 	}
 
 	var keyField string
-	// #新的Key
+	// 如果指定字段名，按记录顺序返回所有值（包含重复）
 	if len(fieldName) > 0 {
 		keyField = fieldName[0]
-		var ids []any
+		ids := make([]interface{}, 0, self.Count())
+		self.RLock()
 		for _, rec := range self.Data {
 			value := rec.GetByField(keyField)
 			if value != nil && !utils.IsBlank(value) {
 				ids = append(ids, value)
 			}
 		}
+		self.RUnlock()
 		return ids
 	} else {
 		keyField = "id" // #默认

@@ -106,10 +106,10 @@ func TestDataset_NewRec(t *testing.T) {
 	ds.SetFields("name", "key")
 	ds.Next()
 	ds.Record().SetByField("name", "dataset")
-	t.Log(ds.Count(), ds.Position, ds.Record().AsMap())
+	t.Log(ds.Count(), ds.Position(), ds.Record().AsMap())
 	ds.Next()
 	ds.Record().SetByField("key", "dataset")
-	t.Log(ds.Count(), ds.Position, ds.Record().AsMap())
+	t.Log(ds.Count(), ds.Position(), ds.Record().AsMap())
 
 	rec := NewRecordSet()
 	// 测试动态添加字段和值
