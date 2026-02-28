@@ -6,38 +6,29 @@ import (
 	"sync"
 	"sync/atomic"
 
-	treehmap "github.com/emirpasic/gods/maps/treemap"
 	"github.com/volts-dev/utils"
 )
-
-// TODO　使用全局池回收利用
 
 type (
 	TDataSet struct {
 		sync.RWMutex
-		config      *Config
-		Name        string        // 数据模型名称 默认为空白 特殊情况下为Model的名称
-		KeyField    string        // 主键字段
-		fields      []string      // 字段引索列表
-		Data        []*TRecordSet //
-		fieldsIndex map[string]int
-		FieldCount  int // 字段数
-
-		RecordsIndex *treehmap.Map // 主键引索列表 // for RecordByKey() Keys()
-		position     atomic.Int32  // 游标
+		config       *Config
+		position     atomic.Int32 // 游标
+		fields       []string     // 字段引索列表
+		fieldsIndex  map[string]int
+		Name         string              // 数据模型名称 默认为空白 特殊情况下为Model的名称
+		KeyField     string              // 主键字段
+		Data         []*TRecordSet       //
+		FieldCount   int                 // 字段数
+		RecordsIndex map[any]*TRecordSet // 主键引索列表 // for RecordByKey() Keys()
 
 		// classic 字段存储的数据包含有 Struct/Array/map 等
 		classic bool // 是否存储着经典模式的数据 many2one字段会显示ID和Name
 	}
 )
 
-func newRecordsIndex() *treehmap.Map {
-	return treehmap.NewWith(func(a, b interface{}) int {
-		if a != b {
-			return 1
-		}
-		return 0
-	})
+func newRecordsIndex() map[any]*TRecordSet {
+	return make(map[any]*TRecordSet)
 }
 
 func NewDataSet(opts ...Option) *TDataSet {
@@ -95,9 +86,12 @@ func (self *TDataSet) Count() int {
 
 // clear all records
 func (self *TDataSet) Clear() {
+	for _, rec := range self.Data {
+		rec.Free()
+	}
 	self.Data = nil
 	if self.RecordsIndex != nil {
-		self.RecordsIndex.Clear()
+		self.RecordsIndex = nil
 	}
 	self.First()
 }
@@ -194,7 +188,7 @@ func (self *TDataSet) AppendRecord(records ...*TRecordSet) error {
 
 	// 清除索引
 	if self.RecordsIndex != nil {
-		self.RecordsIndex.Clear()
+		self.RecordsIndex = nil
 	}
 
 	return nil
@@ -224,7 +218,9 @@ func (self *TDataSet) Delete(idx ...int) bool {
 		return false
 	}
 
+	rec := self.Data[pos]
 	self.Data = append(self.Data[:pos], self.Data[pos+1:]...)
+	rec.Free()
 
 	return true
 }
@@ -302,10 +298,14 @@ func (self *TDataSet) Filter(field string, values []interface{}, inverse ...bool
 	for _, rec := range self.Data {
 		i := rec.GetFieldIndex(field)
 		val := rec.get(i, false)
-		if inv && utils.IndexOf(val, values...) == -1 {
-			newDataSet.AppendRecord(rec)
-		} else if !inv {
-			newDataSet.AppendRecord(rec)
+		if inv {
+			if utils.IndexOf(val, values...) == -1 {
+				newDataSet.AppendRecord(rec)
+			}
+		} else {
+			if utils.IndexOf(val, values...) != -1 {
+				newDataSet.AppendRecord(rec)
+			}
 		}
 	}
 
@@ -329,27 +329,29 @@ func (self *TDataSet) RecordByField(field string, val interface{}) (rec *TRecord
 
 // 获取对应KeyFieldd值
 func (self *TDataSet) RecordByKey(key interface{}, key_field ...string) *TRecordSet {
-	if self.RecordsIndex == nil || self.RecordsIndex.Size() != len(self.Data) {
+	// Get the value first without locking extensively to avoid data races
+	// Note: in parallel executions, Rebuilding RecordsIndex inside RecordByKey is not safe,
+	// but rebuilding lazily check if nil protects some paths
+	if self.RecordsIndex == nil || len(self.RecordsIndex) == 0 {
 		if self.KeyField == "" {
 			if len(key_field) == 0 {
-				//logger.Warnf(`You should point out the key_field name!`) //#重要提示
 				return nil
 			} else {
 				if !self.SetKeyField(key_field[0]) {
-					//logger.Warnf(`Set key_field fail when call RecordByKey(key_field:%v)!`, key_field[0])
 					return nil
 				}
 			}
 		} else {
 			if !self.SetKeyField(self.KeyField) {
-				//logger.Warnf(`Set key_field fail when call RecordByKey(self.KeyField:%v)!`, self.KeyField)
 				return nil
 			}
 		}
 	}
 
-	if val, has := self.RecordsIndex.Get(key); has {
-		return val.(*TRecordSet)
+	self.RLock()
+	defer self.RUnlock()
+	if val, has := self.RecordsIndex[key]; has {
+		return val
 	}
 
 	return nil
@@ -362,6 +364,7 @@ func (self *TDataSet) SetFields(fields ...string) {
 	for idx, name := range self.fields {
 		self.fieldsIndex[name] = idx
 	}
+	self.FieldCount = len(self.fields)
 }
 
 // set the field as key
@@ -372,10 +375,12 @@ func (self *TDataSet) SetKeyField(keyField string) bool {
 	}
 
 	// #全新
+
+	self.Lock()
 	if self.RecordsIndex == nil {
 		self.RecordsIndex = newRecordsIndex()
 	} else {
-		self.RecordsIndex.Clear()
+		self.RecordsIndex = newRecordsIndex() // force a new map instead of clearing
 	}
 
 	self.KeyField = keyField
@@ -384,9 +389,10 @@ func (self *TDataSet) SetKeyField(keyField string) bool {
 	for _, rec := range self.Data {
 		value := rec.GetByField(keyField)
 		if value != nil && !utils.IsBlank(value) {
-			self.RecordsIndex.Put(value, rec) //保存ID 对应的 Record
+			self.RecordsIndex[value] = rec //保存ID 对应的 Record
 		}
 	}
+	self.Unlock()
 
 	return true
 }
@@ -419,6 +425,7 @@ func (self *TDataSet) Keys(fieldName ...string) (res []interface{}) {
 	if len(fieldName) > 0 {
 		keyField = fieldName[0]
 		ids := make([]interface{}, 0, self.Count())
+
 		self.RLock()
 		for _, rec := range self.Data {
 			value := rec.GetByField(keyField)
@@ -427,6 +434,7 @@ func (self *TDataSet) Keys(fieldName ...string) (res []interface{}) {
 			}
 		}
 		self.RUnlock()
+
 		return ids
 	} else {
 		keyField = "id" // #默认
@@ -436,12 +444,24 @@ func (self *TDataSet) Keys(fieldName ...string) (res []interface{}) {
 	}
 
 	if self.KeyField == keyField {
-		if self.Count() > 0 && (self.RecordsIndex == nil || self.RecordsIndex.Size() == 0) {
+		self.RLock()
+		if self.Count() > 0 && (self.RecordsIndex == nil || len(self.RecordsIndex) == 0) {
+			self.RUnlock()
 			self.SetKeyField(self.KeyField)
+			self.RLock()
 		}
 	} else {
 		self.SetKeyField(keyField)
+		self.RLock()
 	}
+	defer self.RUnlock()
 
-	return self.RecordsIndex.Keys()
+	var idRes []interface{}
+	if self.RecordsIndex != nil {
+		idRes = make([]interface{}, 0, len(self.RecordsIndex))
+		for id := range self.RecordsIndex {
+			idRes = append(idRes, id)
+		}
+	}
+	return idRes
 }

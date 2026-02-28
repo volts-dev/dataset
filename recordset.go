@@ -2,6 +2,7 @@ package dataset
 
 import (
 	"encoding/json"
+	"sync"
 
 	structmap "github.com/mitchellh/mapstructure"
 	"github.com/volts-dev/utils"
@@ -18,10 +19,16 @@ type (
 	}
 )
 
+var recordSetPool = sync.Pool{
+	New: func() interface{} {
+		return &TRecordSet{
+			index: -1,
+		}
+	},
+}
+
 func NewRecordSet(record ...map[string]interface{}) *TRecordSet {
-	recset := &TRecordSet{
-		index: -1,
-	}
+	recset := recordSetPool.Get().(*TRecordSet)
 	recset.Reset()
 
 	if len(record) == 0 {
@@ -75,11 +82,31 @@ func (self *TRecordSet) resetByFields(fields ...string) {
 	self.fieldsCount = len(fields)
 }
 
+func (self *TRecordSet) getFieldsIndex() map[string]int {
+	if self.fieldsIndex != nil {
+		return self.fieldsIndex
+	}
+	if self.dataset != nil {
+		return self.dataset.fieldsIndex
+	}
+	return nil
+}
+
 // reset all data to blank
 func (self *TRecordSet) Reset() {
 	self.dataset = nil
 	self.index = -1
 	self.resetByFields()
+}
+
+func (self *TRecordSet) Free() {
+	self.Reset()
+	// Optionally clear references to allow GC, though Reset already clears values if resetByFields drops things.
+	self.fieldsIndex = nil
+	self.values = nil
+	self.ClassicValues = nil
+	self.fieldsCount = 0
+	recordSetPool.Put(self)
 }
 
 func (self *TRecordSet) Fields(fields ...string) []string {
@@ -88,7 +115,8 @@ func (self *TRecordSet) Fields(fields ...string) []string {
 	}
 
 	var res []string
-	for field := range self.fieldsIndex {
+	fieldsIdx := self.getFieldsIndex()
+	for field := range fieldsIdx {
 		res = append(res, field)
 	}
 
@@ -107,7 +135,11 @@ func (self *TRecordSet) SetDataset(dataset *TDataSet) {
 }
 
 func (self *TRecordSet) GetFieldIndex(name string) int {
-	idx, ok := self.fieldsIndex[name]
+	fieldsIdx := self.getFieldsIndex()
+	if fieldsIdx == nil {
+		return -1
+	}
+	idx, ok := fieldsIdx[name]
 	if !ok {
 		return -1 // 或者定义一个常量表示未找到，如 math.MinInt32
 	}
@@ -124,13 +156,12 @@ func (self *TRecordSet) GetByIndex(index int, classic ...bool) interface{} {
 }
 
 func (self *TRecordSet) GetByField(name string, classic ...bool) interface{} {
-	fieldsIndex := self.fieldsIndex
-	// TODO Fix无法同步dataset 和 recordset index
-	//if self.fieldsIndex == nil && self.dataset != nil {
-	//	fieldsIndex = self.dataset.fieldsIndex
-	//}
+	fieldsIdx := self.getFieldsIndex()
+	if fieldsIdx == nil {
+		return nil
+	}
 
-	if index, ok := fieldsIndex[name]; ok {
+	if index, ok := fieldsIdx[name]; ok {
 		var isclassic bool
 		if len(classic) > 1 {
 			isclassic = classic[0]
@@ -143,7 +174,7 @@ func (self *TRecordSet) GetByField(name string, classic ...bool) interface{} {
 }
 
 func (self *TRecordSet) IsEmpty() bool {
-	return self == nil || self.fieldsIndex == nil || self.fieldsCount == 0 //|| self.isEmpty
+	return self == nil || self.getFieldsIndex() == nil || self.fieldsCount == 0 //|| self.isEmpty
 }
 
 // !NOTE! 该函数仅供修改不做添加字段
@@ -160,15 +191,32 @@ func (self *TRecordSet) SetByField(field string, value interface{}, classic ...b
 		return false
 	}
 
-	if index, ok := self.fieldsIndex[field]; ok {
+	fieldsIdx := self.getFieldsIndex()
+	if fieldsIdx == nil {
+		self.fieldsIndex = make(map[string]int)
+		fieldsIdx = self.fieldsIndex
+	}
+
+	if index, ok := fieldsIdx[field]; ok {
 		self.set(index, value, isclassic)
 	} else {
-		self.fieldsIndex[field] = len(self.fieldsIndex)
+		// New field requires standalone map
+		if self.fieldsIndex == nil && self.dataset != nil {
+			// Migrate from dataset sharing to standalone
+			self.fieldsIndex = make(map[string]int)
+			for k, v := range self.dataset.fieldsIndex {
+				self.fieldsIndex[k] = v
+			}
+			fieldsIdx = self.fieldsIndex
+		}
+
+		fieldsIdx[field] = self.fieldsCount
 		if isclassic {
 			self.ClassicValues = append(self.ClassicValues, value)
 		} else {
 			self.values = append(self.values, value)
 		}
+		self.fieldsCount++
 	}
 
 	// 插入新记录到dataset
@@ -191,7 +239,8 @@ func (self *TRecordSet) SetByField(field string, value interface{}, classic ...b
 func (self *TRecordSet) FieldByIndex(idx int) *TFieldSet {
 	var fieldName string
 	var value int
-	for fieldName, value = range self.fieldsIndex {
+	fieldsIdx := self.getFieldsIndex()
+	for fieldName, value = range fieldsIdx {
 		if value == idx {
 			break
 		}
@@ -202,23 +251,26 @@ func (self *TRecordSet) FieldByIndex(idx int) *TFieldSet {
 
 // 获取某个
 func (self *TRecordSet) FieldByName(name string) *TFieldSet {
-	// 优先验证Dataset
-	if self.dataset != nil && self.dataset.fieldsIndex != nil {
-		if idx, has := self.dataset.fieldsIndex[name]; has {
+	fieldsIdx := self.getFieldsIndex()
+	if fieldsIdx != nil {
+		if idx, has := fieldsIdx[name]; has {
 			return newFieldSet(idx, name, self)
 		}
 	}
 
 	// 创建一个空的
 	field := newFieldSet(-1, name, self)
-	_, field.IsValid = self.fieldsIndex[name]
+	if fieldsIdx != nil {
+		_, field.IsValid = fieldsIdx[name]
+	}
 	return field
 }
 
 // convert to a string map
 func (self *TRecordSet) AsStrMap() map[string]string {
 	m := make(map[string]string)
-	for field, value := range self.fieldsIndex {
+	fieldsIdx := self.getFieldsIndex()
+	for field, value := range fieldsIdx {
 		m[field] = utils.ToString(self.values[value])
 	}
 
@@ -228,7 +280,8 @@ func (self *TRecordSet) AsStrMap() map[string]string {
 // convert to an interface{} map
 func (self *TRecordSet) AsMap() map[string]interface{} {
 	m := make(map[string]interface{})
-	for field, value := range self.fieldsIndex {
+	fieldsIdx := self.getFieldsIndex()
+	for field, value := range fieldsIdx {
 		m[field] = self.values[value]
 	}
 
