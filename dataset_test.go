@@ -72,7 +72,7 @@ func TestDatasetAppendRecord(t *testing.T) {
 	rec2 := NewRecordSet()
 	// 测试动态添加字段和值
 	rec2.SetByField("name2", "abc2")
-	rec2.SetByField("age2", 12)
+	rec2.SetByField("age", 12)
 	rec2.SetByField("time2", time.Now())
 	err = ds.AppendRecord(rec2)
 	if err != nil {

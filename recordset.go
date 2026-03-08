@@ -35,6 +35,7 @@ func NewRecordSet(record ...map[string]interface{}) *TRecordSet {
 		return recset
 	}
 
+	recset.fieldsIndex = make(map[string]int)
 	idx := 0
 	for field, val := range record[0] {
 		recset.fieldsIndex[field] = idx
@@ -73,10 +74,17 @@ func (self *TRecordSet) resetByFields(fields ...string) {
 	self.values = make([]interface{}, len(fields))
 	self.ClassicValues = make([]interface{}, 0)
 
-	// rebuild indexs
-	self.fieldsIndex = make(map[string]int) // treehmap.NewWithStringComparator()
-	for idx, name := range fields {
-		self.fieldsIndex[name] = idx
+	// 如果有具体字段则说明非 dataset 寄托，需为其独立建立索引结构
+	if len(fields) > 0 {
+		self.fieldsIndex = make(map[string]int)
+		for idx, name := range fields {
+			self.fieldsIndex[name] = idx
+		}
+	} else if self.dataset != nil {
+		// 如果有寄托的 dataset，将其指向 dataset，节约独立维护 map 的开销
+		self.fieldsIndex = nil
+	} else {
+		self.fieldsIndex = make(map[string]int)
 	}
 
 	self.fieldsCount = len(fields)
@@ -96,6 +104,7 @@ func (self *TRecordSet) getFieldsIndex() map[string]int {
 func (self *TRecordSet) Reset() {
 	self.dataset = nil
 	self.index = -1
+	self.fieldsIndex = nil // reset fieldsIndex explicitly
 	self.resetByFields()
 }
 

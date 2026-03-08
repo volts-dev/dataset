@@ -76,7 +76,7 @@ func TestDatasetCursor(t *testing.T) {
 
 func TestDatasetRecordManagement(t *testing.T) {
 	ds := NewDataSet()
-	
+
 	t.Run("AppendRecord", func(t *testing.T) {
 		rec := NewRecordSet(map[string]any{"id": 1, "name": "a"})
 		err := ds.AppendRecord(rec)
@@ -221,8 +221,8 @@ func TestRecordSetExtended(t *testing.T) {
 
 	t.Run("AsStruct", func(t *testing.T) {
 		type TestStruct struct {
-			ID   int     `field:"id"`
-			Name string  `field:"name"`
+			ID   int    `field:"id"`
+			Name string `field:"name"`
 		}
 		var ts TestStruct
 		err := rec.AsStruct(&ts)
@@ -238,12 +238,12 @@ func TestRecordSetExtended(t *testing.T) {
 func TestFieldSetExtended(t *testing.T) {
 	now := time.Now()
 	rec := NewRecordSet(map[string]any{
-		"int":   123,
-		"str":   "hello",
-		"bool":  true,
-		"float": 45.67,
-		"time":  now,
-		"nil":   nil,
+		"int":    123,
+		"str":    "hello",
+		"bool":   true,
+		"float":  45.67,
+		"time":   now,
+		"nil":    nil,
 		"ds_map": map[string]any{"id": 1, "val": "map"},
 	})
 
@@ -286,5 +286,90 @@ func TestFieldSetExtended(t *testing.T) {
 		if nestedDs.Record().GetByField("id") != 1 {
 			t.Errorf("Nested dataset content mismatch")
 		}
+	})
+}
+
+func TestDatasetComplex(t *testing.T) {
+	t.Run("AppendRecord With Unordered/Missing Fields", func(t *testing.T) {
+		ds := NewDataSet()
+
+		// 1. Initial full record mapping out schema
+		rec1 := NewRecordSet(map[string]any{"id": 1, "name": "A", "age": 20})
+		if err := ds.AppendRecord(rec1); err != nil {
+			t.Fatal(err)
+		}
+
+		// 2. Misaligned record (Missing 'name', order varied internally via map representation anyway)
+		rec2 := NewRecordSet(map[string]any{"age": 30, "id": 2})
+		if err := ds.AppendRecord(rec2); err != nil {
+			t.Fatal(err)
+		}
+
+		if ds.Count() != 2 {
+			t.Errorf("Expected 2 records, got %d", ds.Count())
+		}
+
+		ds.First()
+		ds.Next()
+		if ds.Record().GetByField("age") != 30 {
+			t.Errorf("Expected age 30, got %v", ds.Record().GetByField("age"))
+		}
+		if ds.Record().GetByField("name") != nil {
+			t.Errorf("Expected nil name, got %v", ds.Record().GetByField("name"))
+		}
+	})
+
+	t.Run("Keys Unindexed and Lazy Init", func(t *testing.T) {
+		ds := NewDataSet(WithData(
+			map[string]any{"uid": "U1", "val": 10},
+			map[string]any{"uid": "U2", "val": 20},
+		))
+
+		// Get keys with explicit field before setting key field
+		keys := ds.Keys("uid")
+		if len(keys) != 2 {
+			t.Errorf("Expected 2 keys, got %v", keys)
+		}
+
+		// Set key field explicitly and test mapping
+		ds.SetKeyField("uid")
+		if ds.RecordByKey("U2").GetByField("val") != 20 {
+			t.Errorf("Expected val 20, got %v", ds.RecordByKey("U2").GetByField("val"))
+		}
+	})
+
+	t.Run("GroupBy Missing Data", func(t *testing.T) {
+		ds := NewDataSet(WithData(
+			map[string]any{"id": 1, "group": "A"},
+			map[string]any{"id": 2}, // Missing group
+			map[string]any{"id": 3, "group": "B"},
+		))
+
+		groups := ds.GroupBy("group")
+		if len(groups) != 2 {
+			t.Errorf("Expected 2 groups, got %d", len(groups))
+		}
+	})
+}
+
+func TestRecordSetPoolAndLifecycle(t *testing.T) {
+	t.Run("Reset and Reuse Memory Alignment", func(t *testing.T) {
+		rec := NewRecordSet(map[string]any{"a": 1, "b": 2})
+		if rec.GetByField("a") != 1 {
+			t.Errorf("Expected 1")
+		}
+
+		// Free returns it to pool and calls Reset
+		rec.Free()
+
+		// Get a new one from pool
+		rec2 := NewRecordSet(map[string]any{"x": 9, "y": 8, "z": 7})
+		if rec2.GetByField("a") != nil {
+			t.Errorf("Leaked field 'a' across pool reuse")
+		}
+		if rec2.GetByField("x") != 9 {
+			t.Errorf("Expected 9 from new memory")
+		}
+		rec2.Free()
 	})
 }

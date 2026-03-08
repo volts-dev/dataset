@@ -138,15 +138,19 @@ func (self *TDataSet) Record() *TRecordSet {
 func (self *TDataSet) validateFields(record *TRecordSet) error {
 	// #优先记录该数据集的字段
 	if self.Count() == 0 && self.FieldCount == 0 {
-		self.fields = record.Fields()
+		idxMap := record.getFieldsIndex()
+		// Clone fieldsIndex properly since we optimized record's fieldsIndex memory,
+		// avoid sharing the map if it could mutate differently or if we want dataset to own it.
 		self.fieldsIndex = make(map[string]int)
-		for idx, field := range self.fields {
-			if field != "" { // TODO 不应该有空值 需检查
-				self.fieldsIndex[field] = idx
-			}
+		for k, v := range idxMap {
+			self.fieldsIndex[k] = v
 		}
 
-		//# 添加字段长度
+		self.fields = make([]string, len(self.fieldsIndex))
+		for k, v := range self.fieldsIndex {
+			self.fields[v] = k
+		}
+
 		self.FieldCount = len(self.fieldsIndex)
 	}
 
@@ -180,9 +184,26 @@ func (self *TDataSet) AppendRecord(records ...*TRecordSet) error {
 		//#TODO 考虑是否为复制
 		rec.dataset = self //# 将其归为
 		rec.index = recCount
-		self.Data = append(self.Data, rec)
 
-		recCount++
+		values := make([]interface{}, self.FieldCount)
+		isBlankRec := true
+		for f, idx := range self.fieldsIndex {
+			v := rec.GetByField(f)
+			if idx < self.FieldCount {
+				values[idx] = v
+			}
+			if v != nil {
+				isBlankRec = false
+			}
+		}
+
+		if !isBlankRec {
+			rec.values = values
+			rec.fieldsIndex = nil
+			rec.fieldsCount = self.FieldCount
+			self.Data = append(self.Data, rec)
+			recCount++
+		}
 	}
 	self.position.Store(int32(recCount - 1))
 
