@@ -52,18 +52,47 @@ func (self *TRecordSet) get(index int, classic bool) interface{} {
 		return nil
 	}
 
+	if classic {
+		if index >= len(self.ClassicValues) {
+			return nil
+		}
+		return self.ClassicValues[index]
+	}
+
+	if index >= len(self.values) {
+		return nil
+	}
+
 	return self.values[index]
 }
 
 func (self *TRecordSet) set(index int, value interface{}, classic bool) bool {
-	if index < 0 || index >= self.fieldsCount {
+	if index < 0 || index >= 255 {
 		return false
 	}
 
 	if classic {
+		if index >= len(self.ClassicValues) {
+			// Grow ClassicValues
+			newSize := index + 1
+			newVals := make([]interface{}, newSize)
+			copy(newVals, self.ClassicValues)
+			self.ClassicValues = newVals
+		}
 		self.ClassicValues[index] = value
 	} else {
+		if index >= len(self.values) {
+			// Grow values
+			newSize := index + 1
+			newVals := make([]interface{}, newSize)
+			copy(newVals, self.values)
+			self.values = newVals
+		}
 		self.values[index] = value
+	}
+
+	if index >= self.fieldsCount {
+		self.fieldsCount = index + 1
 	}
 
 	return true
@@ -158,7 +187,7 @@ func (self *TRecordSet) GetFieldIndex(name string) int {
 
 func (self *TRecordSet) GetByIndex(index int, classic ...bool) interface{} {
 	var isclassic bool
-	if len(classic) > 1 {
+	if len(classic) > 0 {
 		isclassic = classic[0]
 	}
 	return self.get(index, isclassic)
@@ -172,7 +201,7 @@ func (self *TRecordSet) GetByField(name string, classic ...bool) interface{} {
 
 	if index, ok := fieldsIdx[name]; ok {
 		var isclassic bool
-		if len(classic) > 1 {
+		if len(classic) > 0 {
 			isclassic = classic[0]
 		}
 
@@ -186,17 +215,16 @@ func (self *TRecordSet) IsEmpty() bool {
 	return self == nil || self.getFieldsIndex() == nil || self.fieldsCount == 0 //|| self.isEmpty
 }
 
-// !NOTE! 该函数仅供修改不做添加字段
+// !NOTE! 该函数支持动态添加字段
 // 字段被纳入Dataset.Fields
 func (self *TRecordSet) SetByField(field string, value interface{}, classic ...bool) bool {
 	var isclassic bool
-	if len(classic) > 1 {
+	if len(classic) > 0 {
 		isclassic = classic[0]
 	}
 
-	// 如果是一个单独非dataset下的记录
-	if self.dataset != nil && self.dataset.config.checkFields && self.index != -1 && !self.dataset.HasField(field) {
-		//log.Errf("The field name < %s > is not in this dataset! please to set field by < dataset.SetFields >", field)
+	// 权限检查
+	if self.dataset != nil && self.dataset.config.checkFields && !self.dataset.HasField(field) {
 		return false
 	}
 
@@ -206,26 +234,28 @@ func (self *TRecordSet) SetByField(field string, value interface{}, classic ...b
 		fieldsIdx = self.fieldsIndex
 	}
 
-	if index, ok := fieldsIdx[field]; ok {
-		self.set(index, value, isclassic)
-	} else {
-		// New field requires standalone map
-		if self.fieldsIndex == nil && self.dataset != nil {
-			// Migrate from dataset sharing to standalone
-			self.fieldsIndex = make(map[string]int)
-			for k, v := range self.dataset.fieldsIndex {
-				self.fieldsIndex[k] = v
+	index, ok := fieldsIdx[field]
+	if !ok {
+		// 新字段处理
+		if self.dataset != nil {
+			// 如果隶属于 Dataset，则尝试在 Dataset 中新增字段
+			index = self.dataset.AddField(field)
+			if index == -1 {
+				return false
 			}
-			fieldsIdx = self.fieldsIndex
-		}
-
-		fieldsIdx[field] = self.fieldsCount
-		if isclassic {
-			self.ClassicValues = append(self.ClassicValues, value)
 		} else {
-			self.values = append(self.values, value)
+			// 独立记录，直接在记录级别新增
+			if len(fieldsIdx) >= 255 {
+				return false
+			}
+			index = len(fieldsIdx)
+			fieldsIdx[field] = index
 		}
-		self.fieldsCount++
+	}
+
+	// 调用 set 执行设值（内部处理增长）
+	if !self.set(index, value, isclassic) {
+		return false
 	}
 
 	// 插入新记录到dataset
@@ -279,8 +309,8 @@ func (self *TRecordSet) FieldByName(name string) *TFieldSet {
 func (self *TRecordSet) AsStrMap() map[string]string {
 	m := make(map[string]string)
 	fieldsIdx := self.getFieldsIndex()
-	for field, value := range fieldsIdx {
-		m[field] = utils.ToString(self.values[value])
+	for field := range fieldsIdx {
+		m[field] = utils.ToString(self.GetByField(field))
 	}
 
 	return m
@@ -290,8 +320,8 @@ func (self *TRecordSet) AsStrMap() map[string]string {
 func (self *TRecordSet) AsMap() map[string]interface{} {
 	m := make(map[string]interface{})
 	fieldsIdx := self.getFieldsIndex()
-	for field, value := range fieldsIdx {
-		m[field] = self.values[value]
+	for field := range fieldsIdx {
+		m[field] = self.GetByField(field)
 	}
 
 	return m
@@ -318,103 +348,30 @@ func (self *TRecordSet) AsCsv() (res string) {
 }
 
 // mapping to a struct
-// the terget must be a pointer value
+// the target must be a pointer value
 func (self *TRecordSet) AsStruct(target interface{}, classic ...bool) error {
 	if target == (interface{})(nil) {
 		return nil
 	}
 
-	decode(self.AsMap(), target)
-
-	/*// 使用经典数据模式
-	lClassic := false
-	if len(classic) > 0 {
-		lClassic = classic[0]
-	}
-
-
-		lStruct := reflect.Indirect(reflect.ValueOf(target))
-		if lStruct.Kind() == reflect.Ptr {
-			lStruct = lStruct.Elem()
-		}
-
-		for idx, name := range self.fields {
-			lFieldValue := lStruct.FieldByName(utils.TitleCasedName(name))
-			if !lFieldValue.IsValid() || !lFieldValue.CanSet() {
-				log.Errf("the field of %v@%s is not valid or cannot set IsValid:%v CanSet:%v", lStruct.Type().Name(), name, lFieldValue.IsValid(), lFieldValue.CanSet())
-				continue
-			}
-
-			//lFieldType := lFieldValue.Type()
-			var lItfVal interface{}
-			var lVal reflect.Value
-			if lClassic {
-				//lVal = reflect.ValueOf(self.ClassicValues[idx])
-				lItfVal = self.ClassicValues[idx]
-			} else {
-				//lVal = reflect.ValueOf(self.values[idx])
-				lItfVal = self.values[idx]
-			}
-
-			// 不设置Nil值
-			if lItfVal == nil {
-				continue
-			}
-
-			// TODO 优化转化
-			//logger.Dbg("AsStruct", name, lFieldValue.Type(), lItfVal, reflect.TypeOf(lItfVal), lVal, self.values[idx])
-			if lFieldValue.Type().Kind() != reflect.TypeOf(lItfVal).Kind() {
-				switch lFieldValue.Type().Kind() {
-				case reflect.Bool:
-					lItfVal = utils.Itf2Bool(lItfVal)
-				case reflect.String:
-					lItfVal = utils.ToString(lItfVal)
-				case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32:
-					lItfVal = utils.Itf2Int(lItfVal)
-				case reflect.Int64:
-					lItfVal = utils.Itf2Int64(lItfVal)
-				case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32:
-					lItfVal = utils.Itf2Int(lItfVal)
-				case reflect.Uint64:
-					lItfVal = utils.Itf2Int64(lItfVal)
-				case reflect.Float32:
-					lItfVal = utils.Itf2Float32(lItfVal)
-				case reflect.Float64:
-					lItfVal = utils.Itf2Float(lItfVal)
-				//case reflect.Array, reflect.Slice:
-				case reflect.Struct:
-					var c_TIME_DEFAULT time.Time
-					TimeType := reflect.TypeOf(c_TIME_DEFAULT)
-					if lFieldValue.Type().ConvertibleTo(TimeType) {
-						lItfVal = utils.Itf2Time(lItfVal)
-					}
-				default:
-					log.Errf("Unsupported struct type %v", lFieldValue.Type().Kind())
-					continue
-				}
-			}
-
-			lVal = reflect.ValueOf(lItfVal)
-			lFieldValue.Set(lVal)
-		}
-	*/
-
-	return nil
+	return decode(self.AsMap(), target)
 }
 
 func (self *TRecordSet) MergeToMap(target map[string]string) (res map[string]string) {
-	/*	for idx, field := range self.fields {
-			target[field] = utils.ToString(self.values[idx])
-		}
-	*/
+	fieldsIdx := self.getFieldsIndex()
+	for field := range fieldsIdx {
+		target[field] = utils.ToString(self.GetByField(field))
+	}
+
 	return target
 }
 
 func decode(input any, output any) error {
 	cfg := &structmap.DecoderConfig{
-		Metadata: nil,
-		Result:   output,
-		TagName:  "field",
+		Metadata:         nil,
+		Result:           output,
+		TagName:          "field",
+		WeaklyTypedInput: true,
 	}
 
 	decoder, err := structmap.NewDecoder(cfg)

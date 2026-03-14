@@ -143,7 +143,9 @@ func (self *TDataSet) validateFields(record *TRecordSet) error {
 		// avoid sharing the map if it could mutate differently or if we want dataset to own it.
 		self.fieldsIndex = make(map[string]int)
 		for k, v := range idxMap {
-			self.fieldsIndex[k] = v
+			if v < 255 {
+				self.fieldsIndex[k] = v
+			}
 		}
 
 		self.fields = make([]string, len(self.fieldsIndex))
@@ -380,12 +382,39 @@ func (self *TDataSet) RecordByKey(key interface{}, key_field ...string) *TRecord
 
 // 设置固定字段
 func (self *TDataSet) SetFields(fields ...string) {
+	if len(fields) > 255 {
+		fields = fields[:255]
+	}
+
 	self.fieldsIndex = make(map[string]int)
 	self.fields = fields
 	for idx, name := range self.fields {
 		self.fieldsIndex[name] = idx
 	}
 	self.FieldCount = len(self.fields)
+}
+
+func (self *TDataSet) AddField(name string) int {
+	self.Lock()
+	defer self.Unlock()
+
+	if self.fieldsIndex == nil {
+		self.fieldsIndex = make(map[string]int)
+	}
+
+	if idx, ok := self.fieldsIndex[name]; ok {
+		return idx
+	}
+
+	if len(self.fieldsIndex) >= 255 {
+		return -1
+	}
+
+	idx := len(self.fieldsIndex)
+	self.fieldsIndex[name] = idx
+	self.fields = append(self.fields, name)
+	self.FieldCount = len(self.fields)
+	return idx
 }
 
 // set the field as key
