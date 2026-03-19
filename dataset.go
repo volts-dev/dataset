@@ -86,6 +86,9 @@ func (self *TDataSet) Count() int {
 
 // clear all records
 func (self *TDataSet) Clear() {
+	self.Lock()
+	defer self.Unlock()
+
 	for _, rec := range self.Data {
 		rec.Free()
 	}
@@ -93,7 +96,8 @@ func (self *TDataSet) Clear() {
 	if self.RecordsIndex != nil {
 		self.RecordsIndex = nil
 	}
-	self.First()
+
+	self.position.Store(0)
 }
 
 func (self *TDataSet) Position() int {

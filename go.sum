@@ -1,6 +1,4 @@
 github.com/mitchellh/mapstructure v1.5.0 h1:jeMsZIYE/09sWLaz43PL7Gy6RuMjD2eJVyuac5Z2hdY=
 github.com/mitchellh/mapstructure v1.5.0/go.mod h1:bFUtVrKA4DC2yAKiSyO/QUcy7e+RRV2QTWOzhPopBRo=
-github.com/volts-dev/utils v0.0.0-20240701185618-78901418ef24 h1:H5oT9+uiWAGSPIHRBbU3jKKZM8MNJOIR1LJjt4Q4q+Q=
-github.com/volts-dev/utils v0.0.0-20240701185618-78901418ef24/go.mod h1:TODvPD1m6eFUenwyxUSS1unXP95G4RMa6oLy7AwX33E=
 github.com/volts-dev/utils v0.0.0-20241206111447-ee54d4e2c42c h1:/U3BhhBRBlQzSsZD/jqoZhvXEIPzxIVBwhuLD3+7unc=
 github.com/volts-dev/utils v0.0.0-20241206111447-ee54d4e2c42c/go.mod h1:TODvPD1m6eFUenwyxUSS1unXP95G4RMa6oLy7AwX33E=
