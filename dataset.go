@@ -127,6 +127,7 @@ func (self *TDataSet) Record() *TRecordSet {
 		// 规避零界点取值
 		rec := NewRecordSet()
 		rec.dataset = self
+		self.Data = append(self.Data, rec)
 		return rec
 	} else {
 		if rec := self.Data[pos]; rec != nil {
