@@ -321,7 +321,16 @@ func (self *TRecordSet) AsMap() map[string]interface{} {
 	m := make(map[string]interface{})
 	fieldsIdx := self.getFieldsIndex()
 	for field := range fieldsIdx {
-		m[field] = self.GetByField(field)
+		v := self.GetByField(field)
+		if v != nil && self.dataset != nil {
+			if self.dataset.fieldFormater != nil {
+				if format, ok := self.dataset.fieldFormater[field]; ok {
+					m[field] = format(v)
+					continue
+				}
+			}
+		}
+		m[field] = v
 	}
 
 	return m

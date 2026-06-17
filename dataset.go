@@ -24,6 +24,12 @@ type (
 
 		// classic 字段存储的数据包含有 Struct/Array/map 等
 		classic bool // 是否存储着经典模式的数据 many2one字段会显示ID和Name
+
+		// stringIdFields 标记哪些字段在 AsMap/AsJson 输出时需把 int64 转为字符串
+		// (主键 id 与 many2one/one2one 外键),避免前端 JS Number 超 2^53 丢精度。
+		// 仅影响序列化输出:dataset 内存值与访问器(GetByField/AsInteger)仍为 int64,
+		// RecordByKey 等内部逻辑不受影响。应在数据集构建完成后一次性设置,之后只读。
+		fieldFormater map[string]func(any) any
 	}
 )
 
@@ -46,6 +52,21 @@ func (self *TDataSet) Classic(value ...bool) bool {
 	}
 
 	return self.classic
+}
+
+// SetStringIdFields 标记输出 JSON 时需把 int64 转为字符串的字段(主键/外键)。
+// 仅影响 AsMap/AsJson 的输出,不改变内存值与访问器结果。应在数据集构建完成后
+// 一次性调用、之后只读。空入参时清空标记。
+func (self *TDataSet) SetFieldFormater(name string, format func(any) any) {
+	if len(name) == 0 {
+		return
+	}
+
+	if self.fieldFormater == nil {
+		self.fieldFormater = make(map[string]func(any) any)
+	}
+
+	self.fieldFormater[name] = format
 }
 
 // TODO 薛瑶中断机制
