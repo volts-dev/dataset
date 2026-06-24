@@ -144,7 +144,12 @@ func (self *TRecordSet) Free() {
 	self.values = nil
 	self.ClassicValues = nil
 	self.fieldsCount = 0
-	recordSetPool.Put(self)
+	// !NOTE! 不要把 record 还回 recordSetPool。
+	// GroupBy/Filter/AppendRecord 会让同一个 *TRecordSet 指针被多个 dataset 共享,
+	// 而 Clear()/Delete() 会对仍被引用(或读路径仍在遍历)的 record 调用 Free();
+	// 一旦还回池子,Get() 会把它发给另一个 goroutine 并就地改写 values/fieldsIndex,
+	// 造成 use-after-free 数据竞争 -> 堆/栈损坏 -> runtime.(*lfstack).pop "unexpected return pc"。
+	// 池化仅是分配优化,在指针被共享的前提下本质不安全,故禁用回收。勿回退。
 }
 
 func (self *TRecordSet) Fields(fields ...string) []string {

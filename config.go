@@ -40,3 +40,20 @@ func WithFieldsChecker() Option {
 		cfg.checkFields = true
 	}
 }
+
+// WithFieldFormater 复制 src 数据集的 fieldFormater 到新数据集。
+// 仅复制格式化器映射(逐项写入新 map,不共享底层 map),不复制数据。
+// src 为 nil 或无格式化器时不做任何操作。
+func WithFieldFormater(src *TDataSet) Option {
+	return func(cfg *Config) {
+		if src == nil {
+			return
+		}
+
+		src.RLock()
+		defer src.RUnlock()
+		for name, format := range src.fieldFormater {
+			cfg.dataset.SetFieldFormater(name, format)
+		}
+	}
+}
