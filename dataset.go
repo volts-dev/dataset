@@ -305,7 +305,7 @@ func (self *TDataSet) GroupBy(field string) map[any]*TDataSet {
 
 			grp = groups[idxValue]
 			if grp == nil {
-				grp = NewDataSet()
+				grp = NewDataSet(WithFieldFormater(self))
 				groups[idxValue] = grp
 			}
 
@@ -343,7 +343,7 @@ func (self *TDataSet) Filter(field string, values []interface{}, inverse ...bool
 		inv = inverse[0]
 	}
 
-	newDataSet := NewDataSet()
+	newDataSet := NewDataSet(WithFieldFormater(self))
 	for _, rec := range self.Data {
 		i := rec.GetFieldIndex(field)
 		val := rec.get(i, false)
