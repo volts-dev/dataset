@@ -286,6 +286,9 @@ func (self *TDataSet) EditRecord(Key string, Record map[string]interface{}) bool
 
 // filed: 可以为格式"filedName/filedName.filedName"
 func (self *TDataSet) GroupBy(field string) map[any]*TDataSet {
+	if self == nil {
+		return nil
+	}
 	fileds := strings.Split(field, ".")
 	if fileds[0] == "" || !self.HasField(fileds[0]) {
 		return nil
@@ -484,6 +487,9 @@ func (self *TDataSet) Fields() []string {
 }
 
 func (self *TDataSet) HasField(name string) bool {
+	if self == nil {
+		return false
+	}
 	_, has := self.fieldsIndex[name]
 	return has
 }
