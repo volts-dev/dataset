@@ -2,6 +2,7 @@ package dataset
 
 import (
 	"encoding/json"
+	"reflect"
 	"sync"
 
 	structmap "github.com/mitchellh/mapstructure"
@@ -322,12 +323,37 @@ func (self *TRecordSet) AsStrMap() map[string]string {
 }
 
 // convert to an interface{} map
+// isScalarValue 判断值是否为标量(可安全套用字段格式化器)。map/切片/数组等复合值
+// 一律视为非标量——它们只可能来自关系字段 OnRead 内嵌的子记录,标量格式化器套上去会
+// 破坏结构。[]byte(Bytea/Blob 二进制列)是唯一需保留为"标量"的切片。
+func isScalarValue(v any) bool {
+	switch v.(type) {
+	case map[string]any, []any, []map[string]any, []string, []int, []int64:
+		return false
+	case []byte:
+		return true
+	}
+	rv := reflect.ValueOf(v)
+	switch rv.Kind() {
+	case reflect.Map, reflect.Slice, reflect.Array:
+		// []byte 已在上面放行;其余切片/数组/映射均为复合值。
+		return false
+	default:
+		return true
+	}
+}
+
 func (self *TRecordSet) AsMap() map[string]interface{} {
 	m := make(map[string]interface{})
 	fieldsIdx := self.getFieldsIndex()
 	for field := range fieldsIdx {
 		v := self.GetByField(field)
-		if v != nil && self.dataset != nil {
+		// 字段格式化器(如 BigNumberToString 给雪花 id/外键装的 int64→字符串转换)是
+		// **标量**转换器。经典/嵌套读取时,关系字段的 OnRead 会把标量外键替换成子记录
+		// (many2one→map、one2many/many2many→[]map/[]id)。此时若仍对这个复合值套用标量
+		// 格式化器,map 会被 ToString 成空串、切片被 ToInt64 成 0,内嵌数据整个丢失。
+		// 故仅对标量值应用格式化器,复合值(map/slice)原样返回。
+		if v != nil && self.dataset != nil && isScalarValue(v) {
 			if self.dataset.fieldFormater != nil {
 				if format, ok := self.dataset.fieldFormater[field]; ok {
 					m[field] = format(v)
